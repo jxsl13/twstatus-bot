@@ -1,0 +1,17 @@
+version: "2.4"
+
+services:
+  
+  # monitor of teeworlds servers
+  twstatus-bot:
+    container_name: twstatus-bot
+    build: .
+    restart: unless-stopped
+    environment:
+        TWBOT_TOKEN: ${TWBOT_TOKEN:?err}
+        TWBOT_CHANNEL_ID: ${TWBOT_CHANNEL_ID:?err}
+        TWBOT_SUPER_ADMINS: ${TWBOT_SUPER_ADMINS:?err}
+        TWBOT_DIR: ${TWBOT_DIR:/data}
+        TWBOT_SERVERS: ${TWBOT_SERVERS:?err}
+        #REFRESH_INTERVAL: ${REFRESH_INTERVAL:?err}
+        #CUSTOM_FLAGS: ${CUSTOM_FLAGS}

@@ -5,14 +5,14 @@ import "strings"
 var (
 	flags = map[int]string{
 		737: "SS",
-		901: "XEN",
-		902: "XNI",
-		903: "XSC",
-		904: "XWA",
-		950: "XBZ",
-		951: "XCA",
-		952: "XES",
-		953: "XGA",
+		901: "XEN", // XEN: England
+		902: "XNI", // XNI: Northern Ireland
+		903: "XSC", // XSC: Scotland
+		904: "XWA", // XWA: Wales
+		950: "XBZ", // XBZ: Balearic Islands
+		951: "XCA", // XCA: Catalonia
+		952: "XES", // XES: Spain
+		953: "XGA", // XGA: Galicia
 		-1:  "default",
 		20:  "AD",
 		784: "AE",

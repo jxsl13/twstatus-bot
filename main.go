@@ -12,6 +12,7 @@ import (
 
 	"github.com/jxsl13/twstatus-bot/bot"
 	"github.com/jxsl13/twstatus-bot/config"
+	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/db"
 	"github.com/spf13/cobra"
 )
@@ -80,12 +81,22 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 
 		c.DB = database
 
+		err = dao.InitDatabase(c.Ctx, c.DB)
+		if err != nil {
+			return fmt.Errorf("failed to initialize database: %w", err)
+		}
+
 		return nil
 	}
 }
 
 func (c *rootContext) RunE(cmd *cobra.Command, args []string) error {
-	b, err := bot.New(c.Config.DiscordToken, c.DB)
+	b, err := bot.New(
+		c.Config.DiscordToken,
+		c.DB,
+		c.Config.SuperAdmins,
+		c.Config.GuildID,
+	)
 	if err != nil {
 		return err
 	}

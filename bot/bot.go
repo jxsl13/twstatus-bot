@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -13,18 +14,113 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 )
 
+var commandList = []api.CreateCommandData{
+	{
+		Name:        "ping",
+		Description: "Ping!",
+	},
+	// {
+	// 	Name:        "register",
+	// 	Description: "Register a server",
+	// 	Options: []discord.CommandOption{
+	// 		&discord.StringOption{
+	// 			OptionName:  "address",
+	// 			Description: "ipv4:port or [ipv6]:port",
+	// 			MinLength:   option.NewInt(16),
+	// 			MaxLength:   option.NewInt(64),
+	// 			Required:    true,
+	// 		},
+	// 	},
+	// 	DefaultMemberPermissions: discord.NewPermissions(
+	// 		discord.PermissionAdministrator,
+	// 	),
+	// },
+	{
+		Name:        "list-guilds",
+		Description: "List all guilds that are allowed to use this bot",
+	},
+	{
+		Name:        "add-guild",
+		Description: "Allow a guild to use this bot",
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "description",
+				Description: "A description for this guild.",
+				MinLength:   option.NewInt(4),
+				MaxLength:   option.NewInt(256),
+				Required:    true,
+			},
+			&discord.StringOption{
+				OptionName:  "id",
+				Description: "The guild id of the guild you want to add.",
+				MinLength:   option.NewInt(1),
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "remove-guild",
+		Description: "Remove a guild from the allowed guilds",
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "id",
+				Description: "The guild id of the guild you want to remove.",
+				MinLength:   option.NewInt(1),
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "add-channel",
+		Description: "Add a channel to the allowed channels",
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "id",
+				Description: "The channel id of the channel you want to add.",
+				MinLength:   option.NewInt(1),
+				MaxLength:   option.NewInt(64),
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "remove-channel",
+		Description: "Remove a channel from the allowed channels",
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "id",
+				Description: "The channel id of the channel you want to remove.",
+				MinLength:   option.NewInt(1),
+				MaxLength:   option.NewInt(64),
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "list-channels",
+		Description: "List all channels of the current guild that are registered for this bot",
+	},
+}
+
 type Bot struct {
-	state *state.State
-	db    *sql.DB
+	state       *state.State
+	db          *sql.DB
+	superAdmins []discord.UserID
 }
 
 // New requires a discord bot token and returns a Bot instance.
 // A bot token starts with Nj... and can be obtained from the discord developer portal.
-func New(token string, db *sql.DB) (*Bot, error) {
+func New(token string, db *sql.DB, superAdmins []discord.UserID, guildID discord.GuildID) (*Bot, error) {
 	s := state.New("Bot " + token)
+	app, err := s.CurrentApplication()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current application: %w", err)
+	}
+
 	bot := &Bot{
-		state: s,
-		db:    db,
+		state:       s,
+		db:          db,
+		superAdmins: superAdmins,
 	}
 
 	s.AddHandler(func(*gateway.ReadyEvent) {
@@ -34,38 +130,28 @@ func New(token string, db *sql.DB) (*Bot, error) {
 
 	r := cmdroute.NewRouter()
 
-	r.AddFunc("ping", bot.Ping)
-	r.AddFunc("register", bot.registerServer)
+	r.AddFunc("list-guilds", bot.listGuilds)
+	r.AddFunc("add-guild", bot.addGuild)
+	r.AddFunc("remove-guild", bot.removeGuild)
+	r.AddFunc("list-channels", bot.listChannels)
+	r.AddFunc("add-channel", bot.addChannel)
+	r.AddFunc("remove-channel", bot.removeChannel)
 
 	s.AddInteractionHandler(r)
 	s.AddIntents(
 		gateway.IntentGuilds,
 	)
 
-	err := cmdroute.OverwriteCommands(s, []api.CreateCommandData{
-		{
-			Name:        "ping",
-			Description: "Ping!",
-		},
-		{
-			Name:        "register",
-			Description: "Register a server",
-			Options: []discord.CommandOption{
-				&discord.StringOption{
-					OptionName:  "address",
-					Description: "ipv4:port or [ipv6]:port",
-					MinLength:   option.NewInt(16),
-					MaxLength:   option.NewInt(64),
-					Required:    true,
-				},
-			},
-			/*DefaultMemberPermissions: discord.NewPermissions(
-				discord.PermissionAdministrator,
-			),*/
-		},
-	})
-	if err != nil {
-		return nil, err
+	if guildID != discord.NullGuildID {
+		_, err = s.BulkOverwriteGuildCommands(app.ID, guildID, commandList)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = cmdroute.OverwriteCommands(s, commandList)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return bot, nil
@@ -77,6 +163,19 @@ func (b *Bot) Connect(ctx context.Context) error {
 
 func (b *Bot) Close() error {
 	return b.state.Close()
+}
+
+func (b *Bot) IsSuperAdmin(userID discord.UserID) bool {
+	for _, admin := range b.superAdmins {
+		if admin == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func ErrAccessForbidden() *api.InteractionResponseData {
+	return errorResponse(fmt.Errorf("access forbidden"))
 }
 
 func errorResponse(err error) *api.InteractionResponseData {

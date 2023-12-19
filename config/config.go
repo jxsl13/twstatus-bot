@@ -17,7 +17,7 @@ type Config struct {
 
 	DatabaseDir string `koanf:"dir" short:"d" description:"Database directory"`
 
-	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Guild ID"`
+	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Guild ID (for debugging only)"`
 	GuildID       discord.GuildID
 }
 

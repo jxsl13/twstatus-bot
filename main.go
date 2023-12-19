@@ -6,9 +6,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+
+	"log"
 
 	"github.com/jxsl13/twstatus-bot/bot"
 	"github.com/jxsl13/twstatus-bot/config"
+	"github.com/jxsl13/twstatus-bot/db"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +38,7 @@ func NewRootCmd() *cobra.Command {
 		PostRunE: func(cmd *cobra.Command, args []string) error {
 
 			cancel()
-			return nil
+			return rootContext.DB.Close()
 		},
 	}
 
@@ -53,8 +57,9 @@ type rootContext struct {
 }
 
 func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args []string) error {
+
 	c.Config = &config.Config{
-		DatabaseDir: "./",
+		DatabaseDir: filepath.Dir(os.Args[0]),
 	}
 	runParser := config.RegisterFlags(c.Config, true, cmd)
 	return func(cmd *cobra.Command, args []string) error {
@@ -63,12 +68,24 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 			return err
 		}
 
+		dbFile, err := filepath.Abs(filepath.Join(c.Config.DatabaseDir, "twstatus.db"))
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path to database file: %w", err)
+		}
+		database, err := db.New(dbFile)
+		if err != nil {
+			return err
+		}
+		log.Printf("connected to database %s", dbFile)
+
+		c.DB = database
+
 		return nil
 	}
 }
 
 func (c *rootContext) RunE(cmd *cobra.Command, args []string) error {
-	b, err := bot.New(c.Config.DiscordToken)
+	b, err := bot.New(c.Config.DiscordToken, c.DB)
 	if err != nil {
 		return err
 	}

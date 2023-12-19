@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"strings"
 
@@ -20,9 +19,6 @@ type Config struct {
 
 	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Guild ID"`
 	GuildID       discord.GuildID
-
-	TeeworldsServers string `koanf:"teeworlds.servers" short:"s" description:"Comma separated list of server addresses ipv4:port or [ipv6]:port"`
-	servers          []netip.AddrPort
 }
 
 func (c *Config) Validate() error {
@@ -69,24 +65,5 @@ func (c *Config) Validate() error {
 		return err
 	}
 
-	if c.TeeworldsServers == "" {
-		return errors.New("teeworlds servers is required")
-	}
-
-	servers := []netip.AddrPort{}
-	for _, addr := range strings.Split(c.TeeworldsServers, ",") {
-		addrPort, err := netip.ParseAddrPort(addr)
-		if err != nil {
-			return fmt.Errorf("invalid teeworlds server address: %s: %w", addr, err)
-		}
-		servers = append(servers, addrPort)
-	}
-
-	c.servers = servers
-
 	return nil
-}
-
-func (c *Config) Servers() []netip.AddrPort {
-	return c.servers
 }

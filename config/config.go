@@ -9,14 +9,14 @@ import (
 )
 
 type Config struct {
-	DiscordToken       string `koanf:"token" short:"t" description:"Discord App token."`
-	DiscordChannelID   string `koanf:"channel.id" short:"i" description:"Discord Channel ID."`
+	DiscordToken       string `koanf:"discord.token" short:"t" description:"Discord App token."`
+	DiscordChannelID   string `koanf:"discord.channel.id" short:"i" description:"Discord Channel ID."`
 	DiscordSuperAdmins string `koanf:"super.admins" short:"a" description:"Comma separated list of Discord User IDs that are super admins."`
 	admins             []string
 
 	DatabaseDir string `koanf:"dir" short:"d" description:"Database directory"`
 
-	TeeworldsServers string `koanf:"servers" short:"s" description:"Comma separated list of server addresses ip:port"`
+	TeeworldsServers string `koanf:"teeworlds.servers" short:"s" description:"Comma separated list of server addresses ipv4:port or [ipv6]:port"`
 	servers          []netip.AddrPort
 }
 
@@ -35,6 +35,16 @@ func (c *Config) Validate() error {
 	c.admins = strings.Split(c.DiscordSuperAdmins, ",")
 	if len(c.admins) == 0 {
 		return errors.New("at least one discord super admin is required")
+	} else {
+		cnt := 0
+		for _, admin := range c.admins {
+			if admin != "" {
+				cnt++
+			}
+		}
+		if cnt == 0 {
+			return errors.New("at least one discord super admin is required")
+		}
 	}
 
 	if c.DatabaseDir == "" {

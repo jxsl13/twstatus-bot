@@ -11,7 +11,7 @@ import (
 
 func GetChannel(ctx context.Context, conn Conn, guildId discord.GuildID, channelID discord.ChannelID) (model.Channel, error) {
 	rows, err := conn.QueryContext(ctx, `
-SELECT message_id, running
+SELECT running
 FROM channels
 WHERE guild_id = ?
 AND channel_id = ?
@@ -34,7 +34,6 @@ LIMIT 1;`,
 
 	var channel model.Channel
 	err = rows.Scan(
-		&channel.MessageID,
 		&channel.Running,
 	)
 	if err != nil {
@@ -49,8 +48,8 @@ LIMIT 1;`,
 
 func ListChannels(ctx context.Context, conn Conn, guildID discord.GuildID) (channels model.Channels, err error) {
 	rows, err := conn.QueryContext(ctx, `
-SELECT channel_id, message_id, running 
-FROM channels 
+SELECT channel_id, running
+FROM channels
 WHERE guild_id = ?
 ORDER BY channel_id ASC;`,
 		int64(guildID),
@@ -64,7 +63,6 @@ ORDER BY channel_id ASC;`,
 		var channel model.Channel
 		err = rows.Scan(
 			&channel.ID,
-			&channel.MessageID,
 			&channel.Running,
 		)
 		if err != nil {
@@ -82,11 +80,10 @@ ORDER BY channel_id ASC;`,
 
 func AddChannel(ctx context.Context, tx *sql.Tx, channel model.Channel) (err error) {
 	_, err = tx.ExecContext(ctx, `
-INSERT INTO channels (guild_id, channel_id, message_id, running) 
-VALUES (?, ?, ?, ?);`,
+INSERT INTO channels (guild_id, channel_id, running)
+VALUES (?, ?, ?);`,
 		channel.GuildID,
 		channel.ID,
-		channel.MessageID,
 		channel.Running,
 	)
 
@@ -107,7 +104,7 @@ VALUES (?, ?, ?, ?);`,
 
 func insertDefaultFlags(ctx context.Context, tx *sql.Tx, channelID discord.ChannelID) (err error) {
 	stmt, err := tx.PrepareContext(ctx, `
-INSERT INTO flags (flag_id, channel_id, abbr, symbol) 
+INSERT INTO flags (flag_id, channel_id, abbr, symbol)
 VALUES (?, ?, ?, ?);`)
 	if err != nil {
 		return fmt.Errorf("failed to add default flags: failed to prepare statement: %w", err)

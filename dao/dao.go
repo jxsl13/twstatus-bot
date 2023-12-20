@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS guilds (
 CREATE TABLE IF NOT EXISTS channels (
 	guild_id INTEGER NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
 	channel_id INTEGER PRIMARY KEY,
-	message_id INTEGER NOT NULL,
 	running INTEGER
 		CHECK( running IN (0,1))
 		NOT NULL DEFAULT 0,
@@ -107,7 +106,7 @@ var flags = map[int][]string{
 	950: {"xbz", ":flag_es:"},        // XBZ - Balearic Islands
 	951: {"xca", ":flag_es:"},        // XCA - Catalonia
 	952: {"xes", ":flag_es:"},        // XES - Spain
-	953: {"xga", ":flag_xga:"},       // XGA - Galicia
+	953: {"xga", ":flag_es:"},        // XGA - Galicia
 	-1:  {"default", ":flag_black:"}, // default flag
 	20:  {"ad", ":flag_ad:"},
 	784: {"ae", ":flag_ae:"},

@@ -8,18 +8,17 @@ import (
 )
 
 type Channel struct {
-	GuildID   discord.GuildID   `discord:"guild_id"`
-	ID        discord.ChannelID `discord:"id"`
-	MessageID discord.MessageID `discord:"message_id"`
-	Running   int               `discord:"running"`
+	GuildID discord.GuildID   `discord:"guild_id"`
+	ID      discord.ChannelID `discord:"id"`
+	Running int               `discord:"running"`
 }
 
 func (c Channel) String() string {
 	active := "inactive"
 	if c.Running != 0 {
-		active = fmt.Sprintf("active: https://discord.com/channels/%s/%s/%s", c.GuildID, c.ID, c.MessageID)
+		active = "active"
 	}
-	return fmt.Sprintf("%d: <#%d> (%s)", c.ID, c.ID, active)
+	return fmt.Sprintf("<#%d> (%s)", c.ID, active)
 }
 
 type Channels []Channel

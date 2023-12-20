@@ -26,26 +26,21 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 }
 
 func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	tx, err := b.db.BeginTx(ctx, nil)
-	if err != nil {
-		return errorResponse(err)
-	}
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, tx.Rollback())
-		} else {
-			err = tx.Commit()
-		}
-
-		if err != nil {
-			resp = errorResponse(err)
-		}
-	}()
-
 	var (
 		guildId   = data.Event.GuildID
 		channelId = data.Event.ChannelID
 	)
+
+	tx, closer, err := b.Tx(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer func() {
+		err = closer(err)
+		if err != nil {
+			resp = errorResponse(err)
+		}
+	}()
 
 	channel, err := dao.GetChannel(ctx, tx, guildId, channelId)
 	if err != nil && !errors.Is(err, dao.ErrNotFound) {
@@ -83,11 +78,23 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 	}
 }
 
-func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	guildId := data.Event.GuildID
-	channelId := data.Event.ChannelID
+func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+	var (
+		guildId   = data.Event.GuildID
+		channelId = data.Event.ChannelID
+	)
+	tx, closer, err := b.Tx(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer func() {
+		err = closer(err)
+		if err != nil {
+			resp = errorResponse(err)
+		}
+	}()
 
-	channel, err := dao.RemoveChannel(ctx, b.db, guildId, channelId)
+	channel, err := dao.RemoveChannel(ctx, tx, guildId, channelId)
 	if err != nil {
 		return errorResponse(err)
 	}

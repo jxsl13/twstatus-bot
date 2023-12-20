@@ -1,9 +1,11 @@
 package dao
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 
 	"modernc.org/sqlite"
 )
@@ -29,54 +31,50 @@ type Conn interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
-type TxConn interface {
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
-	Commit() error
-	Rollback() error
-}
+func InitDatabase(ctx context.Context, conn Conn, wal bool) error {
+	stmt := `
+PRAGMA strict = ON;
+PRAGMA foreign_keys = ON;
+`
+	if wal {
+		stmt += `
+PRAGMA journal_mode = WAL;
+`
+	}
 
-func InitDatabase(ctx context.Context, conn Conn) error {
-	_, err := conn.ExecContext(ctx, `
-	PRAGMA foreign_keys=on;
+	stmt += `
+CREATE TABLE IF NOT EXISTS guilds (
+	guild_id INTEGER NOT NULL PRIMARY KEY,
+	description TEXT NOT NULL DEFAULT ""
+);
 
-	CREATE TABLE IF NOT EXISTS guild (
-		guild_id INTEGER NOT NULL PRIMARY KEY,
-		description TEXT NOT NULL DEFAULT ""
-	);
+CREATE TABLE IF NOT EXISTS channels (
+	guild_id INTEGER NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
+	channel_id INTEGER NOT NULL,
+	message_id INTEGER NOT NULL,
+	running INTEGER NOT NULL DEFAULT 0,
+	PRIMARY KEY (guild_id, channel_id)
+);
 
-	CREATE TABLE IF NOT EXISTS channel (
-		guild_id INTEGER NOT NULL,
-		channel_id INTEGER NOT NULL,
-		message_id INTEGER NOT NULL,
-		running INTEGER NOT NULL DEFAULT 0,
-		PRIMARY KEY (guild_id, channel_id),
-    	FOREIGN KEY (guild_id)
-    		REFERENCES guild (guild_id)
-    		ON DELETE CASCADE
-	);
+CREATE TABLE IF NOT EXISTS flags (
+	flag_id INTEGER NOT NULL,
+	channel_id INTEGER NOT NULL REFERENCES channels(channel_id) ON DELETE CASCADE,
+	abbr TEXT NOT NULL,
+	symbol TEXT NOT NULL,
+	PRIMARY KEY (flag_id, channel_id)
+);
 
-	CREATE TABLE IF NOT EXISTS flag (
-		flag_id INTEGER NOT NULL,
-		channel_id INTEGER NOT NULL,
-		abbr TEXT NOT NULL,
-		symbol TEXT NOT NULL,
-		PRIMARY KEY (flag_id, channel_id),
-    	FOREIGN KEY (channel_id)
-    		REFERENCES channel (channel_id)
-    		ON DELETE CASCADE
-	);
+CREATE TABLE IF NOT EXISTS tw_servers (
+	channel_id INTEGER NOT NULL REFERENCES channels(channel_id) ON DELETE CASCADE,
+	address TEXT NOT NULL,
+	PRIMARY KEY (channel_id, address)
+);
+`
 
-	CREATE TABLE IF NOT EXISTS tw_server (
-		channel_id INTEGER NOT NULL,
-		address TEXT NOT NULL,
-		PRIMARY KEY (channel_id, address),
-    	FOREIGN KEY (channel_id)
-    		REFERENCES channel (channel_id)
-    		ON DELETE CASCADE
-	);
-`)
+	_, err := conn.ExecContext(ctx, stmt)
 	return err
 }
 
@@ -339,4 +337,18 @@ var flags = map[int][]string{
 	744: {"sj", ":flag_sj:"},
 	581: {"um", ":flag_um:"},
 	175: {"yt", ":flag_yt:"},
+}
+
+var flagKeys = sortedKey(flags)
+
+func sortedKey[K cmp.Ordered, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i] < keys[j]
+	})
+	return keys
+
 }

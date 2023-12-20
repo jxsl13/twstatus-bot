@@ -66,7 +66,7 @@ func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.In
 	}
 }
 
-func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
 	if !b.IsSuperAdmin(data.Event.SenderID()) {
 		return ErrAccessForbidden()
 	}
@@ -79,7 +79,18 @@ func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) *api.I
 		id = data.Event.GuildID
 	}
 
-	guild, err := dao.RemoveGuild(ctx, b.db, id)
+	tx, closer, err := b.Tx(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer func() {
+		err = closer(err)
+		if err != nil {
+			resp = errorResponse(err)
+		}
+	}()
+
+	guild, err := dao.RemoveGuild(ctx, tx, id)
 	if err != nil {
 		return errorResponse(err)
 	}

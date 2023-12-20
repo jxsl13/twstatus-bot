@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 
@@ -184,4 +185,20 @@ func errorResponse(err error) *api.InteractionResponseData {
 		Flags:           discord.EphemeralMessage,
 		AllowedMentions: &api.AllowedMentions{ /* none */ },
 	}
+}
+
+// Tx returns a transaction and a closer function.
+func (b *Bot) Tx(ctx context.Context) (*sql.Tx, func(error) error, error) {
+	closer := func(err error) error { return err }
+	tx, err := b.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, closer, err
+	}
+
+	return tx, func(err error) error {
+		if err != nil {
+			return errors.Join(err, tx.Rollback())
+		}
+		return tx.Commit()
+	}, nil
 }

@@ -61,6 +61,7 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 
 	c.Config = &config.Config{
 		DatabaseDir: filepath.Dir(os.Args[0]),
+		WAL:         false,
 	}
 	runParser := config.RegisterFlags(c.Config, true, cmd)
 	return func(cmd *cobra.Command, args []string) error {
@@ -81,7 +82,7 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 
 		c.DB = database
 
-		err = dao.InitDatabase(c.Ctx, c.DB)
+		err = dao.InitDatabase(c.Ctx, c.DB, c.Config.WAL)
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}

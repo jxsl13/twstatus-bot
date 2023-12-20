@@ -15,7 +15,8 @@ type Config struct {
 	DiscordSuperAdmins string `koanf:"super.admins" short:"a" description:"Comma separated list of Discord User IDs that are super admins."`
 	SuperAdmins        []discord.UserID
 
-	DatabaseDir string `koanf:"dir" short:"d" description:"Database directory"`
+	DatabaseDir string `koanf:"db.dir" short:"d" description:"Database directory"`
+	WAL         bool   `koanf:"db.wal" short:"w" description:"Enable Write-Ahead-Log for SQLite"`
 
 	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Guild ID (for debugging only)"`
 	GuildID       discord.GuildID

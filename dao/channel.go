@@ -3,7 +3,6 @@ package dao
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -11,9 +10,14 @@ import (
 )
 
 func GetChannel(ctx context.Context, conn Conn, guildId discord.GuildID, channelID discord.ChannelID) (model.Channel, error) {
-	rows, err := conn.QueryContext(ctx, `SELECT message_id, running FROM channel WHERE guild_id = ? AND channel_id = ?;`,
-		uint64(guildId),
-		uint64(channelID),
+	rows, err := conn.QueryContext(ctx, `
+SELECT message_id, running
+FROM channels
+WHERE guild_id = ?
+AND channel_id = ?
+LIMIT 1;`,
+		int64(guildId),
+		int64(channelID),
 	)
 	if err != nil {
 		return model.Channel{}, fmt.Errorf("failed to query channel: %w", err)
@@ -22,6 +26,10 @@ func GetChannel(ctx context.Context, conn Conn, guildId discord.GuildID, channel
 
 	if !rows.Next() {
 		return model.Channel{}, fmt.Errorf("%w: channel %d", ErrNotFound, channelID)
+	}
+	err = rows.Err()
+	if err != nil {
+		return model.Channel{}, fmt.Errorf("failed to iterate over channels: %w", err)
 	}
 
 	var channel model.Channel
@@ -40,8 +48,12 @@ func GetChannel(ctx context.Context, conn Conn, guildId discord.GuildID, channel
 }
 
 func ListChannels(ctx context.Context, conn Conn, guildID discord.GuildID) (channels model.Channels, err error) {
-	rows, err := conn.QueryContext(ctx, `SELECT channel_id, message_id, running FROM channel WHERE guild_id = ?;`,
-		uint64(guildID),
+	rows, err := conn.QueryContext(ctx, `
+SELECT channel_id, message_id, running 
+FROM channels 
+WHERE guild_id = ?
+ORDER BY channel_id ASC;`,
+		int64(guildID),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query channels: %w", err)
@@ -61,12 +73,17 @@ func ListChannels(ctx context.Context, conn Conn, guildID discord.GuildID) (chan
 		channel.GuildID = guildID
 		channels = append(channels, channel)
 	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate over channels: %w", err)
+	}
 
 	return channels, nil
 }
 
-func AddChannel(ctx context.Context, conn Conn, channel model.Channel) (err error) {
-	_, err = conn.ExecContext(ctx, `INSERT INTO channel (guild_id, channel_id, message_id, running) VALUES (?, ?, ?, ?);`,
+func AddChannel(ctx context.Context, tx *sql.Tx, channel model.Channel) (err error) {
+	_, err = tx.ExecContext(ctx, `
+INSERT INTO channels (guild_id, channel_id, message_id, running) 
+VALUES (?, ?, ?, ?);`,
 		channel.GuildID,
 		channel.ID,
 		channel.MessageID,
@@ -80,7 +97,7 @@ func AddChannel(ctx context.Context, conn Conn, channel model.Channel) (err erro
 		return fmt.Errorf("failed to insert channel %d: %w", channel.ID, err)
 	}
 
-	err = insertDefaultFlags(ctx, conn, channel.ID)
+	err = insertDefaultFlags(ctx, tx, channel.ID)
 	if err != nil {
 		return fmt.Errorf("failed to insert default flags: %w", err)
 	}
@@ -88,15 +105,18 @@ func AddChannel(ctx context.Context, conn Conn, channel model.Channel) (err erro
 	return err
 }
 
-func insertDefaultFlags(ctx context.Context, conn Conn, channelID discord.ChannelID) (err error) {
-	for id, vals := range flags {
+func insertDefaultFlags(ctx context.Context, tx *sql.Tx, channelID discord.ChannelID) (err error) {
+	stmt, err := tx.PrepareContext(ctx, `
+INSERT INTO flags (flag_id, channel_id, abbr, symbol) 
+VALUES (?, ?, ?, ?);`)
+	if err != nil {
+		return fmt.Errorf("failed to add default flags: failed to prepare statement: %w", err)
+	}
+
+	for _, id := range flagKeys {
+		vals := flags[id]
 		abbr, flag := vals[0], vals[1]
-		_, err = conn.ExecContext(ctx, `INSERT INTO flag (flag_id, channel_id, abbr, symbol) VALUES (?, ?, ?, ?);`,
-			id,
-			uint64(channelID),
-			abbr,
-			flag,
-		)
+		_, err = stmt.ExecContext(ctx, id, int64(channelID), abbr, flag)
 		if err != nil {
 			return fmt.Errorf("failed to insert default flag %s: %w", abbr, err)
 		}
@@ -104,25 +124,17 @@ func insertDefaultFlags(ctx context.Context, conn Conn, channelID discord.Channe
 	return nil
 }
 
-func RemoveChannel(ctx context.Context, db *sql.DB, guildID discord.GuildID, channelID discord.ChannelID) (channel model.Channel, err error) {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return model.Channel{}, fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() {
-		if err != nil {
-			err = errors.Join(err, tx.Rollback())
-		} else {
-			err = tx.Commit()
-		}
-	}()
+func RemoveChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, channelID discord.ChannelID) (channel model.Channel, err error) {
 
 	channel, err = GetChannel(ctx, tx, guildID, channelID)
 	if err != nil {
 		return model.Channel{}, err
 	}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM channel WHERE guild_id = ? AND channel_id = ?`,
+	_, err = tx.ExecContext(ctx, `
+DELETE FROM channels
+WHERE guild_id = ?
+AND channel_id = ?;`,
 		channel.GuildID,
 		channel.ID,
 	)

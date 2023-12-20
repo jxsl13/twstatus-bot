@@ -37,7 +37,7 @@ type Conn interface {
 func InitDatabase(ctx context.Context, conn Conn, wal bool) error {
 	stmt := `
 PRAGMA strict = ON;
-PRAGMA foreign_keys = ON;
+PRAGMA foreign_keys = OFF;
 `
 	if wal {
 		stmt += `
@@ -49,31 +49,51 @@ PRAGMA journal_mode = WAL;
 CREATE TABLE IF NOT EXISTS guilds (
 	guild_id INTEGER NOT NULL PRIMARY KEY,
 	description TEXT NOT NULL DEFAULT ""
-);
+) STRICT;
 
 CREATE TABLE IF NOT EXISTS channels (
 	guild_id INTEGER NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
-	channel_id INTEGER NOT NULL,
+	channel_id INTEGER PRIMARY KEY,
 	message_id INTEGER NOT NULL,
-	running INTEGER NOT NULL DEFAULT 0,
-	PRIMARY KEY (guild_id, channel_id)
-);
+	running INTEGER
+		CHECK( running IN (0,1))
+		NOT NULL DEFAULT 0,
+	UNIQUE(guild_id, channel_id)
+) STRICT;
 
 CREATE TABLE IF NOT EXISTS flags (
 	flag_id INTEGER NOT NULL,
-	channel_id INTEGER NOT NULL REFERENCES channels(channel_id) ON DELETE CASCADE,
+	channel_id INTEGER
+		NOT NULL
+		REFERENCES channels(channel_id)
+			ON DELETE CASCADE,
 	abbr TEXT NOT NULL,
 	symbol TEXT NOT NULL,
 	PRIMARY KEY (flag_id, channel_id)
-);
+) STRICT;
 
 CREATE TABLE IF NOT EXISTS tw_servers (
-	channel_id INTEGER NOT NULL REFERENCES channels(channel_id) ON DELETE CASCADE,
-	address TEXT NOT NULL,
-	PRIMARY KEY (channel_id, address)
-);
+	address TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	gametype TEXT NOT NULL,
+	passworded INTEGER
+		CHECK( passworded IN (0,1))
+		NOT NULL DEFAULT 0,
+	map TEXT NOT NULL,
+	map_sha256sum TEXT,
+	map_size INTEGER,
+	version TEXT NOT NULL,
+	max_clients INTEGER NOT NULL,
+	max_players INTEGER NOT NULL,
+	score_kind TEXT
+		CHECK(score_kind IN ('points','time'))
+		NOT NULL DEFAULT 'points',
+	clients BLOB NOT NULL
+) STRICT;
 `
-
+	stmt += `
+PRAGMA foreign_key_check; -- validate foreign keys
+`
 	_, err := conn.ExecContext(ctx, stmt)
 	return err
 }

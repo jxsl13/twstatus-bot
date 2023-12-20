@@ -11,13 +11,13 @@ type Server struct {
 }
 
 type Info struct {
-	MaxClients      int64            `json:"max_clients"`
-	MaxPlayers      int64            `json:"max_players"`
-	Passworded      bool             `json:"passworded"`
-	GameType        string           `json:"game_type"`
 	Name            string           `json:"name"`
+	GameType        string           `json:"game_type"`
 	Map             Map              `json:"map"`
 	Version         string           `json:"version"`
+	Passworded      bool             `json:"passworded"`
+	MaxClients      int64            `json:"max_clients"`
+	MaxPlayers      int64            `json:"max_players"`
 	Clients         []Client         `json:"clients,omitempty"`
 	ClientScoreKind *ClientScoreKind `json:"client_score_kind,omitempty"`
 	ServerSignature *string          `json:"server_signature,omitempty"`

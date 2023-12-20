@@ -3,3 +3,4 @@ twstatus-bot
 .DS_Store
 *.db
 *.db-journal
+__debug_bin*

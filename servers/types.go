@@ -16,8 +16,8 @@ type Info struct {
 	Map             Map              `json:"map"`
 	Version         string           `json:"version"`
 	Passworded      bool             `json:"passworded"`
-	MaxClients      int64            `json:"max_clients"`
-	MaxPlayers      int64            `json:"max_players"`
+	MaxClients      int              `json:"max_clients"`
+	MaxPlayers      int              `json:"max_players"`
 	Clients         []Client         `json:"clients,omitempty"`
 	ClientScoreKind *ClientScoreKind `json:"client_score_kind,omitempty"`
 	ServerSignature *string          `json:"server_signature,omitempty"`
@@ -27,18 +27,18 @@ type Info struct {
 type Client struct {
 	Name     string `json:"name"`
 	Clan     string `json:"clan"`
-	Country  int64  `json:"country"`
-	Score    int64  `json:"score"`
+	Country  int    `json:"country"`
+	Score    int    `json:"score"`
 	IsPlayer bool   `json:"is_player"`
 	Skin     *Skin  `json:"skin,omitempty"`
 	Afk      *bool  `json:"afk,omitempty"`
-	Team     *int64 `json:"team,omitempty"`
+	Team     *int   `json:"team,omitempty"`
 }
 
 type Skin struct {
 	Name       *string `json:"name,omitempty"`
-	ColorBody  *int64  `json:"color_body,omitempty"`
-	ColorFeet  *int64  `json:"color_feet,omitempty"`
+	ColorBody  *int32  `json:"color_body,omitempty"`
+	ColorFeet  *int32  `json:"color_feet,omitempty"`
 	Body       *Part   `json:"body,omitempty"`
 	Marking    *Part   `json:"marking,omitempty"`
 	Decoration *Part   `json:"decoration,omitempty"`
@@ -49,13 +49,13 @@ type Skin struct {
 
 type Part struct {
 	Name  string `json:"name"`
-	Color *int64 `json:"color,omitempty"`
+	Color *int32 `json:"color,omitempty"`
 }
 
 type Map struct {
 	Name   string  `json:"name"`
 	Sha256 *string `json:"sha256,omitempty"`
-	Size   *int64  `json:"size,omitempty"`
+	Size   *int    `json:"size,omitempty"`
 }
 
 type ClientScoreKind string

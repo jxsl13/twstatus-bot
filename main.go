@@ -93,6 +93,7 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 
 func (c *rootContext) RunE(cmd *cobra.Command, args []string) error {
 	b, err := bot.New(
+		c.Ctx,
 		c.Config.DiscordToken,
 		c.DB,
 		c.Config.SuperAdmins,

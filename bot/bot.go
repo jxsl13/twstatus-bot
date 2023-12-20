@@ -95,7 +95,7 @@ type Bot struct {
 
 // New requires a discord bot token and returns a Bot instance.
 // A bot token starts with Nj... and can be obtained from the discord developer portal.
-func New(token string, db *sql.DB, superAdmins []discord.UserID, guildID discord.GuildID) (*Bot, error) {
+func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.UserID, guildID discord.GuildID) (*Bot, error) {
 	s := state.New("Bot " + token)
 	app, err := s.CurrentApplication()
 	if err != nil {
@@ -111,6 +111,12 @@ func New(token string, db *sql.DB, superAdmins []discord.UserID, guildID discord
 	s.AddHandler(func(*gateway.ReadyEvent) {
 		me, _ := s.Me()
 		log.Println("connected to the gateway as", me.Tag())
+		src, dst, err := bot.updateServers(ctx)
+		if err != nil {
+			log.Printf("failed to initialize server list: %v", err)
+		} else {
+			log.Printf("initialized server list with %d source and %d target servers", src, dst)
+		}
 	})
 
 	r := cmdroute.NewRouter()

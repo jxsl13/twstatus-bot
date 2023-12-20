@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strconv"
 
 	"github.com/jxsl13/twstatus-bot/utils"
 	"modernc.org/sqlite"
@@ -33,7 +35,19 @@ type Conn interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
-func InitDatabase(ctx context.Context, conn Conn, wal bool) error {
+func InitDatabase(ctx context.Context, db *sql.DB, wal bool) (err error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, tx.Rollback())
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
 	stmt := `
 PRAGMA strict = ON;
 PRAGMA foreign_keys = OFF;
@@ -58,14 +72,23 @@ CREATE TABLE IF NOT EXISTS channels (
 		NOT NULL DEFAULT 0,
 	UNIQUE(guild_id, channel_id)
 ) STRICT;
+CREATE INDEX IF NOT EXISTS channels_id ON channels(channel_id);
 
 CREATE TABLE IF NOT EXISTS flags (
-	flag_id INTEGER NOT NULL,
+	flag_id INTEGER PRIMARY KEY,
+	abbr TEXT NOT NULL,
+	symbol TEXT NOT NULL
+) STRICT;
+CREATE INDEX IF NOT EXISTS flags_id ON flags(flag_id);
+
+CREATE TABLE IF NOT EXISTS flags_mappings (
 	channel_id INTEGER
 		NOT NULL
 		REFERENCES channels(channel_id)
 			ON DELETE CASCADE,
-	abbr TEXT NOT NULL,
+	flag_id INTEGER NOT NULL
+		REFERENCES flags(flag_id)
+			ON DELETE CASCADE,
 	symbol TEXT NOT NULL,
 	PRIMARY KEY (flag_id, channel_id)
 ) STRICT;
@@ -86,23 +109,59 @@ CREATE TABLE IF NOT EXISTS tw_servers (
 	max_players INTEGER NOT NULL,
 	score_kind TEXT
 		CHECK(score_kind IN ('points','time'))
-		NOT NULL DEFAULT 'points',
-	clients TEXT NOT NULL
+		NOT NULL DEFAULT 'points'
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS tw_server_clients (
+	address TEXT NOT NULL
+		REFERENCES tw_servers(address)
+			ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	clan TEXT NOT NULL,
+	country_id INTEGER NOT NULL
+		REFERENCES flags(flag_id),
+	score INTEGER NOT NULL,
+	is_player INTEGER NOT NULL
 ) STRICT;
 `
 	stmt += `
 PRAGMA foreign_key_check; -- validate foreign keys
 `
-	_, err := conn.ExecContext(ctx, stmt)
-	return err
+	_, err = tx.ExecContext(ctx, stmt)
+	if err != nil {
+		return err
+	}
+
+	flagStmt, err := tx.PrepareContext(ctx, `
+REPLACE INTO flags (flag_id, abbr, symbol) VALUES (?, ?, ?);`,
+	)
+	if err != nil {
+		return err
+	}
+
+	for _, id := range flagKeys {
+		vals := flags[id]
+		abbr, flag := vals[0], vals[1]
+		_, err = flagStmt.ExecContext(ctx, id, abbr, flag)
+		if err != nil {
+			return fmt.Errorf("failed to insert flag %s: %w", abbr, err)
+		}
+	}
+
+	return nil
 }
 
+// https://github.com/teeworlds/teeworlds/blob/a1911c8f7d8458fb4076ef8e7651e8ef5e91ab3e/datasrc/countryflags/index.json#L30
+// https://github.com/ddnet/ddnet/blob/e0052c3aec74490c328ef6205917016974d790d4/data/countryflags/index.txt#L32
 var flags = map[int][]string{
 	737: {"ss", ":flag_ss:"},
-	901: {"xen", ":england:"},        // XEN - England
-	902: {"xni", ":flag_je:"},        // XNI - Northern Ireland
-	903: {"xsc", ":scotland:"},       // XSC - Scotland
-	904: {"xwa", ":wales:"},          // XWA - Wales
+	901: {"gb-eng", ":england:"},  // XEN - England
+	902: {"gb-nir", ":flag_je:"},  // XNI - Northern Ireland
+	903: {"gb-sct", ":scotland:"}, // XSC - Scotland
+	904: {"gb-wls", ":wales:"},    // XWA - Wales
+	905: {"eu", ":flag_eu:"},
+	906: {"es-ct", ":flag_es:"},
+	907: {"es-ga", ":flag_es:"},
 	950: {"xbz", ":flag_es:"},        // XBZ - Balearic Islands
 	951: {"xca", ":flag_es:"},        // XCA - Catalonia
 	952: {"xes", ":flag_es:"},        // XES - Spain
@@ -359,3 +418,39 @@ var flags = map[int][]string{
 }
 
 var flagKeys = utils.SortedMapKeys(flags)
+
+func KnownFlag(code int) bool {
+	_, found := flags[code]
+	return found
+}
+
+// Flag returns a string representation of a given flag value
+func Flag(value int) string {
+	values, found := flags[value]
+	if !found {
+		return fmt.Sprintf(":flag_%d:", value)
+	}
+	return values[1]
+}
+
+func FlagsWithCustomConfig(value int, customMap map[string]string) string {
+	values, found := flags[value]
+	if !found {
+		fakeCountryTag := strconv.Itoa(value)
+		// user can provide custom integer mappings
+		customEmoji, exists := customMap[fakeCountryTag]
+		if exists {
+			return customEmoji
+		}
+		return fmt.Sprintf(":flag_%s:", fakeCountryTag)
+	}
+	countryTag := values[0]
+
+	customEmoji, exists := customMap[countryTag]
+	if exists {
+		return customEmoji
+	}
+
+	discordEmoji := values[1]
+	return discordEmoji
+}

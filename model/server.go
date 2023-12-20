@@ -17,7 +17,7 @@ type Server struct {
 	Passworded   int
 	Map          string
 	MapSha256Sum *string
-	MapSize      *int64
+	MapSize      *int
 	Version      string
 	MaxClients   int
 	MaxPlayers   int
@@ -38,18 +38,26 @@ func (s Server) ProtocolsJSON() []byte {
 type Client struct {
 	Name     string `json:"name"`
 	Clan     string `json:"clan"`
-	Country  int64  `json:"country"`
-	Score    int64  `json:"score"`
+	Country  int    `json:"country"`
+	Score    int    `json:"score"`
 	IsPlayer bool   `json:"is_player"`
 	Skin     *Skin  `json:"skin,omitempty"`
 	Afk      *bool  `json:"afk,omitempty"`
-	Team     *int64 `json:"team,omitempty"`
+	Team     *int   `json:"team,omitempty"`
+}
+
+func (c *Client) IsConnecting() bool {
+	return c.Name == "(connecting)" &&
+		c.Score == -1 &&
+		c.Clan == "" &&
+		!c.IsPlayer
+
 }
 
 type Skin struct {
 	Name       *string `json:"name,omitempty"`
-	ColorBody  *int64  `json:"color_body,omitempty"`
-	ColorFeet  *int64  `json:"color_feet,omitempty"`
+	ColorBody  *int32  `json:"color_body,omitempty"`
+	ColorFeet  *int32  `json:"color_feet,omitempty"`
 	Body       *Part   `json:"body,omitempty"`
 	Marking    *Part   `json:"marking,omitempty"`
 	Decoration *Part   `json:"decoration,omitempty"`
@@ -60,7 +68,7 @@ type Skin struct {
 
 type Part struct {
 	Name  string `json:"name"`
-	Color *int64 `json:"color,omitempty"`
+	Color *int32 `json:"color,omitempty"`
 }
 
 // expands the servers.Server DTO into a slice of Server models

@@ -15,7 +15,7 @@ func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
 		return err
 	}
 
-	stmt, err := tx.PrepareContext(ctx, `
+	serverStmt, err := tx.PrepareContext(ctx, `
 INSERT INTO tw_servers (
 	address,
 	protocols,
@@ -28,16 +28,29 @@ INSERT INTO tw_servers (
 	version,
 	max_clients,
 	max_players,
-	score_kind,
-	clients
+	score_kind
 )
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);`)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?);`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare servers statement: %w", err)
 	}
 
+	clientStmt, err := tx.PrepareContext(ctx, `
+REPLACE INTO tw_server_clients (
+	address,
+	name,
+	clan,
+	country_id,
+	score,
+	is_player
+) VALUES (?,?,?,?,?,?);`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare clients statement: %w", err)
+	}
+
+	var isPlayer int
 	for _, server := range servers {
-		_, err = stmt.ExecContext(ctx,
+		_, err = serverStmt.ExecContext(ctx,
 			server.Address,
 			string(server.ProtocolsJSON()),
 			server.Name,
@@ -50,13 +63,40 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);`)
 			server.MaxClients,
 			server.MaxPlayers,
 			server.ScoreKind,
-			string(server.ClientsJSON()),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert server %s: %w", server.Address, err)
 		}
 
+		for _, client := range server.Clients {
+			// skip connecting players
+			if client.IsConnecting() {
+				continue
+			}
+
+			if !KnownFlag(client.Country) {
+				// set to known
+				client.Country = -1
+			}
+
+			isPlayer = 0
+			if client.IsPlayer {
+				isPlayer = 1
+			}
+			_, err = clientStmt.ExecContext(ctx,
+				server.Address,
+				client.Name,
+				client.Clan,
+				client.Country,
+				client.Score,
+				isPlayer,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to insert client %s for address %s: %w", client.Name, server.Address, err)
+			}
+		}
 	}
+
 	return nil
 }
 

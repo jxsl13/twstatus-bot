@@ -1,12 +1,11 @@
 package dao
 
 import (
-	"cmp"
 	"context"
 	"database/sql"
 	"errors"
-	"sort"
 
+	"github.com/jxsl13/twstatus-bot/utils"
 	"modernc.org/sqlite"
 )
 
@@ -74,6 +73,7 @@ CREATE TABLE IF NOT EXISTS flags (
 
 CREATE TABLE IF NOT EXISTS tw_servers (
 	address TEXT PRIMARY KEY,
+	protocols TEXT NOT NULL,
 	name TEXT NOT NULL,
 	gametype TEXT NOT NULL,
 	passworded INTEGER
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS tw_servers (
 	score_kind TEXT
 		CHECK(score_kind IN ('points','time'))
 		NOT NULL DEFAULT 'points',
-	clients BLOB NOT NULL
+	clients TEXT NOT NULL
 ) STRICT;
 `
 	stmt += `
@@ -359,16 +359,4 @@ var flags = map[int][]string{
 	175: {"yt", ":flag_yt:"},
 }
 
-var flagKeys = sortedKey(flags)
-
-func sortedKey[K cmp.Ordered, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
-	return keys
-
-}
+var flagKeys = utils.SortedMapKeys(flags)

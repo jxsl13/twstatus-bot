@@ -18,6 +18,7 @@ func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
 	stmt, err := tx.PrepareContext(ctx, `
 INSERT INTO tw_servers (
 	address,
+	protocols,
 	name,
 	gametype,
 	passworded,
@@ -30,7 +31,7 @@ INSERT INTO tw_servers (
 	score_kind,
 	clients
 )
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?);`)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare servers statement: %w", err)
 	}
@@ -38,6 +39,7 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?);`)
 	for _, server := range servers {
 		_, err = stmt.ExecContext(ctx,
 			server.Address,
+			string(server.ProtocolsJSON()),
 			server.Name,
 			server.Gametype,
 			server.Passworded,
@@ -48,7 +50,7 @@ VALUES (?,?,?,?,?,?,?,?,?,?,?,?);`)
 			server.MaxClients,
 			server.MaxPlayers,
 			server.ScoreKind,
-			server.ClientsJSON(),
+			string(server.ClientsJSON()),
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert server %s: %w", server.Address, err)
@@ -62,6 +64,7 @@ func ListServers(ctx context.Context, conn Conn) (servers []model.Server, err er
 	rows, err := conn.QueryContext(ctx, `
 SELECT
 	address,
+	protocols,
 	name,
 	gametype,
 	passworded,
@@ -82,9 +85,14 @@ ORDER BY address ASC`)
 
 	for rows.Next() {
 		var server model.Server
-		var clientsJSON []byte
+		var (
+			clientsJSON   []byte
+			protocolsJSON []byte
+		)
+
 		err = rows.Scan(
 			&server.Address,
+			&protocolsJSON,
 			&server.Name,
 			&server.Gametype,
 			&server.Passworded,
@@ -105,6 +113,12 @@ ORDER BY address ASC`)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal clients json: %w", err)
 		}
+
+		err = json.Unmarshal(protocolsJSON, &server.Protocols)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
+		}
+
 		servers = append(servers, server)
 	}
 

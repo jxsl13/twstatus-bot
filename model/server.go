@@ -2,12 +2,16 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
+	"net/url"
 
 	"github.com/jxsl13/twstatus-bot/servers"
 )
 
 type Server struct {
 	Address      string
+	Protocols    []string
 	Name         string
 	Gametype     string
 	Passworded   int
@@ -23,6 +27,11 @@ type Server struct {
 
 func (s Server) ClientsJSON() []byte {
 	data, _ := json.Marshal(s.Clients)
+	return data
+}
+
+func (s Server) ProtocolsJSON() []byte {
+	data, _ := json.Marshal(s.Protocols)
 	return data
 }
 
@@ -75,9 +84,24 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 			clients = append(clients, ClientFromDTO(client))
 		}
 
+		m := make(map[string][]string, len(server.Addresses))
 		for _, addr := range server.Addresses {
+			u, err := url.ParseRequestURI(addr)
+			if err != nil {
+				log.Println(fmt.Errorf("failed to parse address %s: %w", addr, err))
+				continue
+			}
+
+			if u.Scheme != "" {
+				host := u.Host
+				m[host] = append(m[host], u.Scheme)
+			}
+		}
+
+		for addr, protocols := range m {
 			server := Server{
 				Address:      addr,
+				Protocols:    protocols,
 				Name:         info.Name,
 				Gametype:     info.GameType,
 				Passworded:   passworded,
@@ -103,36 +127,35 @@ func ClientFromDTO(client servers.Client) Client {
 		Country:  client.Country,
 		Score:    client.Score,
 		IsPlayer: client.IsPlayer,
-		Skin: &Skin{
-			Name:      client.Skin.Name,
-			ColorBody: client.Skin.ColorBody,
-			ColorFeet: client.Skin.ColorFeet,
-			Body: &Part{
-				Name:  client.Skin.Body.Name,
-				Color: client.Skin.Body.Color,
-			},
-			Marking: &Part{
-				Name:  client.Skin.Marking.Name,
-				Color: client.Skin.Marking.Color,
-			},
-			Decoration: &Part{
-				Name:  client.Skin.Decoration.Name,
-				Color: client.Skin.Decoration.Color,
-			},
-			Hands: &Part{
-				Name:  client.Skin.Hands.Name,
-				Color: client.Skin.Hands.Color,
-			},
-			Feet: &Part{
-				Name:  client.Skin.Feet.Name,
-				Color: client.Skin.Feet.Color,
-			},
-			Eyes: &Part{
-				Name:  client.Skin.Eyes.Name,
-				Color: client.Skin.Eyes.Color,
-			},
-		},
-		Afk:  client.Afk,
-		Team: client.Team,
+		Skin:     SkinFromDTO(client.Skin),
+		Afk:      client.Afk,
+		Team:     client.Team,
+	}
+}
+
+func SkinFromDTO(skin *servers.Skin) *Skin {
+	if skin == nil {
+		return nil
+	}
+	return &Skin{
+		Name:       skin.Name,
+		ColorBody:  skin.ColorBody,
+		ColorFeet:  skin.ColorFeet,
+		Body:       PartFromDTO(skin.Body),
+		Marking:    PartFromDTO(skin.Marking),
+		Decoration: PartFromDTO(skin.Decoration),
+		Hands:      PartFromDTO(skin.Hands),
+		Feet:       PartFromDTO(skin.Feet),
+		Eyes:       PartFromDTO(skin.Eyes),
+	}
+}
+
+func PartFromDTO(part *servers.Part) *Part {
+	if part == nil {
+		return nil
+	}
+	return &Part{
+		Name:  part.Name,
+		Color: part.Color,
 	}
 }

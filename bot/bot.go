@@ -17,26 +17,6 @@ import (
 
 var commandList = []api.CreateCommandData{
 	{
-		Name:        "ping",
-		Description: "Ping!",
-	},
-	// {
-	// 	Name:        "register",
-	// 	Description: "Register a server",
-	// 	Options: []discord.CommandOption{
-	// 		&discord.StringOption{
-	// 			OptionName:  "address",
-	// 			Description: "ipv4:port or [ipv6]:port",
-	// 			MinLength:   option.NewInt(16),
-	// 			MaxLength:   option.NewInt(64),
-	// 			Required:    true,
-	// 		},
-	// 	},
-	// 	DefaultMemberPermissions: discord.NewPermissions(
-	// 		discord.PermissionAdministrator,
-	// 	),
-	// },
-	{
 		Name:        "list-guilds",
 		Description: "List all guilds that are allowed to use this bot",
 	},
@@ -101,6 +81,10 @@ var commandList = []api.CreateCommandData{
 		Name:        "list-channels",
 		Description: "List all channels of the current guild that are registered for this bot",
 	},
+	{
+		Name:        "update-servers",
+		Description: "Update the server list",
+	},
 }
 
 type Bot struct {
@@ -137,6 +121,7 @@ func New(token string, db *sql.DB, superAdmins []discord.UserID, guildID discord
 	r.AddFunc("list-channels", bot.listChannels)
 	r.AddFunc("add-channel", bot.addChannel)
 	r.AddFunc("remove-channel", bot.removeChannel)
+	r.AddFunc("update-servers", bot.updateServerList)
 
 	s.AddInteractionHandler(r)
 	s.AddIntents(

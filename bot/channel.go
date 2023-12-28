@@ -25,11 +25,6 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 }
 
 func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	var (
-		guildId   = data.Event.GuildID
-		channelId = data.Event.ChannelID
-	)
-
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
 		return errorResponse(err)
@@ -42,8 +37,8 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 	}()
 
 	channel := model.Channel{
-		GuildID: guildId,
-		ID:      channelId,
+		GuildID: data.Event.GuildID,
+		ID:      optionalChannelID(data),
 		Running: 0,
 	}
 	err = dao.AddChannel(ctx, tx, channel)
@@ -51,17 +46,15 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 		return errorResponse(err)
 	}
 
+	msg := fmt.Sprintf("added channel: %s", channel)
 	return &api.InteractionResponseData{
-		Content: option.NewNullableString(fmt.Sprintf("added channel: %s", channel)),
+		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,
 	}
 }
 
 func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	var (
-		guildId   = data.Event.GuildID
-		channelId = data.Event.ChannelID
-	)
+
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
 		return errorResponse(err)
@@ -73,13 +66,19 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 		}
 	}()
 
-	channel, err := dao.RemoveChannel(ctx, tx, guildId, channelId)
+	channel, err := dao.RemoveChannel(
+		ctx,
+		tx,
+		data.Event.GuildID,
+		optionalChannelID(data),
+	)
 	if err != nil {
 		return errorResponse(err)
 	}
 
+	msg := fmt.Sprintf("removed channel %s", channel)
 	return &api.InteractionResponseData{
-		Content: option.NewNullableString(fmt.Sprintf("removed channel %s", channel)),
+		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,
 	}
 }

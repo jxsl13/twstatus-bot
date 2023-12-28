@@ -94,31 +94,7 @@ VALUES (?, ?, ?);`,
 		return fmt.Errorf("failed to insert channel %d: %w", channel.ID, err)
 	}
 
-	err = insertDefaultFlags(ctx, tx, channel.ID)
-	if err != nil {
-		return fmt.Errorf("failed to insert default flags: %w", err)
-	}
-
 	return err
-}
-
-func insertDefaultFlags(ctx context.Context, tx *sql.Tx, channelID discord.ChannelID) (err error) {
-	stmt, err := tx.PrepareContext(ctx, `
-INSERT INTO flags (flag_id, channel_id, abbr, symbol)
-VALUES (?, ?, ?, ?);`)
-	if err != nil {
-		return fmt.Errorf("failed to add default flags: failed to prepare statement: %w", err)
-	}
-
-	for _, id := range flagKeys {
-		vals := flags[id]
-		abbr, flag := vals[0], vals[1]
-		_, err = stmt.ExecContext(ctx, id, int64(channelID), abbr, flag)
-		if err != nil {
-			return fmt.Errorf("failed to insert default flag %s: %w", abbr, err)
-		}
-	}
-	return nil
 }
 
 func RemoveChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, channelID discord.ChannelID) (channel model.Channel, err error) {

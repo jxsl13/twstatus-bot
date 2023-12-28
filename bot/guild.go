@@ -12,6 +12,23 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
+func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	if !b.IsSuperAdmin(data.Event.SenderID()) {
+		return ErrAccessForbidden()
+	}
+
+	guilds, err := dao.ListGuilds(ctx, b.db)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	msg := fmt.Sprintf("Guilds: \n%s", guilds)
+	return &api.InteractionResponseData{
+		Content: option.NewNullableString(msg),
+		Flags:   discord.EphemeralMessage,
+	}
+}
+
 type AddGuildOpts struct { // optional (taken from current guild)
 	Description string `discord:"description"` // required
 }
@@ -44,24 +61,9 @@ func (b *Bot) addGuild(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return errorResponse(err)
 	}
 
+	msg := fmt.Sprintf("Added guild %d (%s)", data.Event.GuildID, opts.Description)
 	return &api.InteractionResponseData{
-		Content: option.NewNullableString(fmt.Sprintf("Added guild %d (%s)", data.Event.GuildID, opts.Description)),
-		Flags:   discord.EphemeralMessage,
-	}
-}
-
-func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	if !b.IsSuperAdmin(data.Event.SenderID()) {
-		return ErrAccessForbidden()
-	}
-
-	guilds, err := dao.ListGuilds(ctx, b.db)
-	if err != nil {
-		return errorResponse(err)
-	}
-
-	return &api.InteractionResponseData{
-		Content: option.NewNullableString(fmt.Sprintf("Guilds: \n%s\n", guilds)),
+		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,
 	}
 }
@@ -95,8 +97,9 @@ func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) (resp 
 		return errorResponse(err)
 	}
 
+	msg := fmt.Sprintf("Removed guild `%d` (%s)", guild.ID, guild.Description)
 	return &api.InteractionResponseData{
-		Content: option.NewNullableString(fmt.Sprintf("Removed guild %d (%s)", guild.ID, guild.Description)),
+		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,
 	}
 }

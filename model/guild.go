@@ -12,8 +12,8 @@ type Guild struct {
 	Description string
 }
 
-func (g Guild) String() string {
-	return fmt.Sprintf("%d: %s", g.ID, g.Description)
+func (g *Guild) String() string {
+	return fmt.Sprintf("`%d`: %s", g.ID, g.Description)
 }
 
 type Guilds []Guild

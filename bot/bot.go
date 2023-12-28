@@ -15,6 +15,10 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 )
 
+const (
+	channelOptionName = "channel"
+)
+
 var commandList = []api.CreateCommandData{
 	{
 		Name:        "list-guilds",
@@ -35,6 +39,7 @@ var commandList = []api.CreateCommandData{
 				OptionName:  "id",
 				Description: "The guild id of the guild you want to add.",
 				MinLength:   option.NewInt(1),
+				MaxLength:   option.NewInt(20),
 				Required:    false,
 			},
 		},
@@ -47,6 +52,7 @@ var commandList = []api.CreateCommandData{
 				OptionName:  "id",
 				Description: "The guild id of the guild you want to remove.",
 				MinLength:   option.NewInt(1),
+				MaxLength:   option.NewInt(20),
 				Required:    false,
 			},
 		},
@@ -55,11 +61,9 @@ var commandList = []api.CreateCommandData{
 		Name:        "add-channel",
 		Description: "Add a channel to the allowed channels",
 		Options: []discord.CommandOption{
-			&discord.StringOption{
-				OptionName:  "id",
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
 				Description: "The channel id of the channel you want to add.",
-				MinLength:   option.NewInt(1),
-				MaxLength:   option.NewInt(64),
 				Required:    false,
 			},
 		},
@@ -68,11 +72,9 @@ var commandList = []api.CreateCommandData{
 		Name:        "remove-channel",
 		Description: "Remove a channel from the allowed channels",
 		Options: []discord.CommandOption{
-			&discord.StringOption{
-				OptionName:  "id",
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
 				Description: "The channel id of the channel you want to remove.",
-				MinLength:   option.NewInt(1),
-				MaxLength:   option.NewInt(64),
 				Required:    false,
 			},
 		},
@@ -80,6 +82,64 @@ var commandList = []api.CreateCommandData{
 	{
 		Name:        "list-channels",
 		Description: "List all channels of the current guild that are registered for this bot",
+	},
+	{
+		Name:        "list-flag-mappings",
+		Description: "List all flag mappings for the current or given channel",
+		Options: []discord.CommandOption{
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
+				Description: "The channel id of the channel you want to list the flag mappings for.",
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "add-flag-mapping",
+		Description: "Add a flag mapping for the current channel",
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "abbr",
+				Description: "The abbreviation of the flag you want to add a different emoji for.",
+				Required:    true,
+				MinLength:   option.NewInt(2),
+				MaxLength:   option.NewInt(7), // len("default")
+			},
+			&discord.StringOption{
+				OptionName:  "emoji",
+				Description: "The emoji you want to use for this flag (any text).",
+				Required:    true,
+				MinLength:   option.NewInt(3), // :X:
+				MaxLength:   option.NewInt(256),
+			},
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
+				Description: "The channel id of the channel you want to add a flag mapping for.",
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "remove-flag-mapping",
+		Description: "Remove a flag mapping for the current or provided channel",
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "abbr",
+				Description: "The abbreviation of the flag you want to remove a mapping for.",
+				Required:    true,
+				MinLength:   option.NewInt(2),
+				MaxLength:   option.NewInt(7), // len("default")
+			},
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
+				Description: "The channel id of the channel you want to remove a flag mapping for.",
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:        "list-flags",
+		Description: "show all known flags",
 	},
 	{
 		Name:        "update-servers",
@@ -127,6 +187,10 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 	r.AddFunc("list-channels", bot.listChannels)
 	r.AddFunc("add-channel", bot.addChannel)
 	r.AddFunc("remove-channel", bot.removeChannel)
+	r.AddFunc("list-flags", bot.listFlags)
+	r.AddFunc("add-flag-mapping", bot.addFlagMapping)
+	r.AddFunc("list-flag-mappings", bot.listFlagMappings)
+	r.AddFunc("remove-flag-mapping", bot.removeFlagMapping)
 	r.AddFunc("update-servers", bot.updateServerList)
 
 	s.AddInteractionHandler(r)

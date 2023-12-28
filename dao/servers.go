@@ -74,7 +74,7 @@ REPLACE INTO tw_server_clients (
 				continue
 			}
 
-			if !KnownFlag(client.Country) {
+			if !model.KnownFlag(client.Country) {
 				// set to known
 				client.Country = -1
 			}

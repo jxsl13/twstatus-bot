@@ -11,8 +11,17 @@ import (
 )
 
 const (
-	UniqueConstraintViolation = 1555
+	UniqueConstraintViolation     = 2067
+	PrimaryKeyConstraintViolation = 1555
 )
+
+func IsPrimaryKeyConstraintErr(err error) bool {
+	serr, ok := err.(*sqlite.Error)
+	if ok {
+		return serr.Code() == PrimaryKeyConstraintViolation
+	}
+	return false
+}
 
 func IsUniqueConstraintErr(err error) bool {
 	serr, ok := err.(*sqlite.Error)
@@ -95,6 +104,20 @@ CREATE TABLE IF NOT EXISTS flag_mappings (
 	PRIMARY KEY (flag_id, channel_id)
 ) STRICT;
 
+CREATE TABLE IF NOT EXISTS tracking (
+	guild_id INTEGER
+		NOT NULL
+		REFERENCES guild(guild_id),
+	channel_id INTEGER
+		NOT NULL
+		REFERENCES channels(channel_id)
+			ON DELETE CASCADE,
+	address TEXT NOT NULL,
+	message_id INTEGER NOT NULL,
+	CONSTRAINT tracking_unique_address UNIQUE (guild_id, channel_id, address)
+	CONSTRAINT tracking_unique_message_id UNIQUE (guild_id, channel_id, message_id)
+) STRICT;
+
 CREATE TABLE IF NOT EXISTS tw_servers (
 	address TEXT PRIMARY KEY,
 	protocols TEXT NOT NULL,
@@ -135,7 +158,8 @@ PRAGMA foreign_key_check; -- validate foreign keys
 	}
 
 	flagStmt, err := tx.PrepareContext(ctx, `
-REPLACE INTO flags (flag_id, abbr, emoji) VALUES (?, ?, ?);`,
+REPLACE INTO flags (flag_id, abbr, emoji)
+VALUES (?, ?, ?);`,
 	)
 	if err != nil {
 		return err

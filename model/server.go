@@ -25,14 +25,13 @@ type Server struct {
 	Clients      []Client // serialized as json into database
 }
 
-func (s Server) ClientsJSON() []byte {
-	data, _ := json.Marshal(s.Clients)
+func (s *Server) ProtocolsJSON() []byte {
+	data, _ := json.Marshal(s.Protocols)
 	return data
 }
 
-func (s Server) ProtocolsJSON() []byte {
-	data, _ := json.Marshal(s.Protocols)
-	return data
+func (s *Server) ProtocolsFromJSON(data []byte) error {
+	return json.Unmarshal(data, &s.Protocols)
 }
 
 type Client struct {

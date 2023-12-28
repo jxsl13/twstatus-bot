@@ -6,6 +6,7 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
+	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/jxsl13/twstatus-bot/dao"
 )
@@ -35,6 +36,7 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 	msg := fmt.Sprintf("Started channel: %s", channel)
 	return &api.InteractionResponseData{
 		Content: option.NewNullableString(msg),
+		Flags:   discord.EphemeralMessage,
 	}
 }
 
@@ -63,5 +65,6 @@ func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp 
 	msg := fmt.Sprintf("Stopped channel: %s", channel)
 	return &api.InteractionResponseData{
 		Content: option.NewNullableString(msg),
+		Flags:   discord.EphemeralMessage,
 	}
 }

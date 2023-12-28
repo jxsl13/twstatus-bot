@@ -9,6 +9,71 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
+func ListServers(ctx context.Context, conn Conn) (servers []model.Server, err error) {
+	rows, err := conn.QueryContext(ctx, `
+SELECT
+	address,
+	protocols,
+	name,
+	gametype,
+	passworded,
+	map,
+	map_sha256sum,
+	map_size,
+	version,
+	max_clients,
+	max_players,
+	score_kind,
+	clients
+FROM tw_servers
+ORDER BY address ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query servers: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var server model.Server
+		var (
+			clientsJSON   []byte
+			protocolsJSON []byte
+		)
+
+		err = rows.Scan(
+			&server.Address,
+			&protocolsJSON,
+			&server.Name,
+			&server.Gametype,
+			&server.Passworded,
+			&server.Map,
+			&server.MapSha256Sum,
+			&server.MapSize,
+			&server.Version,
+			&server.MaxClients,
+			&server.MaxPlayers,
+			&server.ScoreKind,
+			&clientsJSON,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan server: %w", err)
+		}
+
+		err = json.Unmarshal(clientsJSON, &server.Clients)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal clients json: %w", err)
+		}
+
+		err = json.Unmarshal(protocolsJSON, &server.Protocols)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
+		}
+
+		servers = append(servers, server)
+	}
+
+	return servers, nil
+}
+
 func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
 	flags, err := ListFlags(ctx, tx)
 	if err != nil {
@@ -20,9 +85,14 @@ func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
 		knownFlags[flag.ID] = true
 	}
 
+	_, err = tx.ExecContext(ctx, `DELETE FROM tw_server_clients`)
+	if err != nil {
+		return fmt.Errorf("failed to delete server clients: %w", err)
+	}
+
 	_, err = tx.ExecContext(ctx, `DELETE FROM tw_servers`)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete servers: %w", err)
 	}
 
 	serverStmt, err := tx.PrepareContext(ctx, `
@@ -106,71 +176,28 @@ REPLACE INTO tw_server_clients (
 			}
 		}
 	}
-
 	return nil
 }
 
-func ListServers(ctx context.Context, conn Conn) (servers []model.Server, err error) {
+func ExistsServer(ctx context.Context, conn Conn, address string) (found bool, err error) {
 	rows, err := conn.QueryContext(ctx, `
 SELECT
-	address,
-	protocols,
-	name,
-	gametype,
-	passworded,
-	map,
-	map_sha256sum,
-	map_size,
-	version,
-	max_clients,
-	max_players,
-	score_kind,
-	clients
+	address
 FROM tw_servers
-ORDER BY address ASC`)
+WHERE address = ?
+LIMIT 1;`, address)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to query servers: %w", err)
+		return false, fmt.Errorf("failed to query server address: %s: %w", address, err)
 	}
 	defer rows.Close()
 
-	for rows.Next() {
-		var server model.Server
-		var (
-			clientsJSON   []byte
-			protocolsJSON []byte
-		)
-
-		err = rows.Scan(
-			&server.Address,
-			&protocolsJSON,
-			&server.Name,
-			&server.Gametype,
-			&server.Passworded,
-			&server.Map,
-			&server.MapSha256Sum,
-			&server.MapSize,
-			&server.Version,
-			&server.MaxClients,
-			&server.MaxPlayers,
-			&server.ScoreKind,
-			&clientsJSON,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan server: %w", err)
-		}
-
-		err = json.Unmarshal(clientsJSON, &server.Clients)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal clients json: %w", err)
-		}
-
-		err = json.Unmarshal(protocolsJSON, &server.Protocols)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
-		}
-
-		servers = append(servers, server)
+	if !rows.Next() {
+		return false, nil
 	}
-
-	return servers, nil
+	err = rows.Err()
+	if err != nil {
+		return false, fmt.Errorf("failed to iterate over server addresses: %w", err)
+	}
+	return true, nil
 }

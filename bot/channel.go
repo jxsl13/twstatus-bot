@@ -21,6 +21,7 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 
 	return &api.InteractionResponseData{
 		Content: option.NewNullableString(channels.StatusString()),
+		Flags:   discord.EphemeralMessage,
 	}
 }
 

@@ -177,6 +177,28 @@ var userCommandList = []api.CreateCommandData{
 		),
 	},
 	{
+		Name:           "add-tracking",
+		Description:    "Add tracking of a Teeworlds server for the current or given channel",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
+		Options: []discord.CommandOption{
+			&discord.StringOption{
+				OptionName:  "address",
+				Description: "The address of the server you want to track.",
+				Required:    true,
+				MinLength:   option.NewInt(9),
+				MaxLength:   option.NewInt(44),
+			},
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
+				Description: "The channel id of the channel you want to track the server for.",
+				Required:    false,
+			},
+		},
+	},
+	{
 		Name:           "start",
 		Description:    "Start the bot for  the given channel",
 		NoDMPermission: true,
@@ -209,6 +231,7 @@ var userCommandList = []api.CreateCommandData{
 }
 
 type Bot struct {
+	ctx         context.Context
 	state       *state.State
 	db          *sql.DB
 	superAdmins []discord.UserID
@@ -224,10 +247,15 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 	}
 
 	bot := &Bot{
+		ctx:         ctx,
 		state:       s,
 		db:          db,
 		superAdmins: superAdmins,
 	}
+
+	s.AddIntents(
+		gateway.IntentGuilds | gateway.IntentGuildMessages | gateway.IntentGuildMessageReactions,
+	)
 
 	s.AddHandler(func(*gateway.ReadyEvent) {
 		me, _ := s.Me()
@@ -239,6 +267,9 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 			log.Printf("initialized server list with %d source and %d target servers", src, dst)
 		}
 	})
+
+	// requires guild message intents
+	s.AddHandler(bot.handleMessageDeletion)
 
 	r := cmdroute.NewRouter()
 
@@ -256,19 +287,15 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 	r.AddFunc("add-flag-mapping", bot.addFlagMapping)
 	r.AddFunc("list-flag-mappings", bot.listFlagMappings)
 	r.AddFunc("remove-flag-mapping", bot.removeFlagMapping)
+	r.AddFunc("add-tracking", bot.addTracking)
 	r.AddFunc("start", bot.startChannel)
 	r.AddFunc("stop", bot.stopChannel)
 
 	s.AddInteractionHandler(r)
-	s.AddIntents(
-		gateway.IntentGuilds,
-	)
 
-	if guildID != discord.NullGuildID {
-		_, err = s.BulkOverwriteGuildCommands(app.ID, guildID, ownerCommandList)
-		if err != nil {
-			return nil, err
-		}
+	_, err = s.BulkOverwriteGuildCommands(app.ID, guildID, ownerCommandList)
+	if err != nil {
+		return nil, err
 	}
 
 	// update user facing commands

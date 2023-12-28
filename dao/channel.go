@@ -60,7 +60,9 @@ ORDER BY channel_id ASC;`,
 	defer rows.Close()
 
 	for rows.Next() {
-		var channel model.Channel
+		channel := model.Channel{
+			GuildID: guildID,
+		}
 		err = rows.Scan(
 			&channel.ID,
 			&channel.Running,
@@ -68,7 +70,6 @@ ORDER BY channel_id ASC;`,
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan channel: %w", err)
 		}
-		channel.GuildID = guildID
 		channels = append(channels, channel)
 	}
 	if rows.Err() != nil {

@@ -14,11 +14,19 @@ type Channel struct {
 }
 
 func (c Channel) String() string {
+	return fmt.Sprintf("<#%d>", c.ID)
+}
+
+func (c Channel) StatusString() string {
 	active := "inactive"
-	if c.Running != 0 {
+	if c.IsRunning() {
 		active = "active"
 	}
-	return fmt.Sprintf("<#%d> (%s)", c.ID, active)
+	return fmt.Sprintf("%s (%s)", c.String(), active)
+}
+
+func (c *Channel) IsRunning() bool {
+	return c.Running != 0
 }
 
 type Channels []Channel
@@ -30,6 +38,18 @@ func (c Channels) String() string {
 	var sb strings.Builder
 	for _, channel := range c {
 		sb.WriteString(channel.String())
+		sb.WriteString("\n")
+	}
+	return sb.String()
+}
+
+func (c Channels) StatusString() string {
+	if len(c) == 0 {
+		return "no channels"
+	}
+	var sb strings.Builder
+	for _, channel := range c {
+		sb.WriteString(channel.StatusString())
 		sb.WriteString("\n")
 	}
 	return sb.String()

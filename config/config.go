@@ -31,15 +31,11 @@ func (c *Config) Validate() error {
 		return errors.New("discord channel id is required")
 	}
 
-	if c.GuildIDString != "" {
-		snowflake, err := discord.ParseSnowflake(c.GuildIDString)
-		if err != nil {
-			return fmt.Errorf("invalid guild id: %s: %w", c.GuildID, err)
-		}
-		c.GuildID = discord.GuildID(snowflake)
-	} else {
-		c.GuildID = discord.NullGuildID
+	snowflake, err := discord.ParseSnowflake(c.GuildIDString)
+	if err != nil {
+		return fmt.Errorf("invalid guild id: %s: %w", c.GuildID, err)
 	}
+	c.GuildID = discord.GuildID(snowflake)
 
 	if c.DiscordSuperAdmins == "" {
 		return errors.New("discord super admins is required")
@@ -61,7 +57,7 @@ func (c *Config) Validate() error {
 		return errors.New("database directory is required")
 	}
 
-	_, err := os.Stat(c.DatabaseDir)
+	_, err = os.Stat(c.DatabaseDir)
 	if err != nil {
 		return err
 	}

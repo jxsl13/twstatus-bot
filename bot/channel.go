@@ -20,7 +20,7 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 	}
 
 	return &api.InteractionResponseData{
-		Content: option.NewNullableString(channels.String()),
+		Content: option.NewNullableString(channels.StatusString()),
 	}
 }
 
@@ -46,7 +46,7 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 		return errorResponse(err)
 	}
 
-	msg := fmt.Sprintf("added channel: %s", channel)
+	msg := fmt.Sprintf("Added channel: %s", channel)
 	return &api.InteractionResponseData{
 		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,

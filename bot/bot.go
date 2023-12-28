@@ -19,7 +19,7 @@ const (
 	channelOptionName = "channel"
 )
 
-var commandList = []api.CreateCommandData{
+var ownerCommandList = []api.CreateCommandData{
 	{
 		Name:        "list-guilds",
 		Description: "List all guilds that are allowed to use this bot",
@@ -58,8 +58,19 @@ var commandList = []api.CreateCommandData{
 		},
 	},
 	{
-		Name:        "add-channel",
-		Description: "Add a channel to the allowed channels",
+		Name:        "update-servers",
+		Description: "Update the server list",
+	},
+}
+
+var userCommandList = []api.CreateCommandData{
+	{
+		Name:           "add-channel",
+		Description:    "Add a channel to the allowed channels",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 		Options: []discord.CommandOption{
 			&discord.ChannelOption{
 				OptionName:  channelOptionName,
@@ -69,8 +80,12 @@ var commandList = []api.CreateCommandData{
 		},
 	},
 	{
-		Name:        "remove-channel",
-		Description: "Remove a channel from the allowed channels",
+		Name:           "remove-channel",
+		Description:    "Remove a channel from the allowed channels",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 		Options: []discord.CommandOption{
 			&discord.ChannelOption{
 				OptionName:  channelOptionName,
@@ -80,12 +95,20 @@ var commandList = []api.CreateCommandData{
 		},
 	},
 	{
-		Name:        "list-channels",
-		Description: "List all channels of the current guild that are registered for this bot",
+		Name:           "list-channels",
+		Description:    "List all channels of the current guild that are registered for this bot",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 	},
 	{
-		Name:        "list-flag-mappings",
-		Description: "List all flag mappings for the current or given channel",
+		Name:           "list-flag-mappings",
+		Description:    "List all flag mappings for the current or given channel",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 		Options: []discord.CommandOption{
 			&discord.ChannelOption{
 				OptionName:  channelOptionName,
@@ -95,8 +118,12 @@ var commandList = []api.CreateCommandData{
 		},
 	},
 	{
-		Name:        "add-flag-mapping",
-		Description: "Add a flag mapping for the current channel",
+		Name:           "add-flag-mapping",
+		Description:    "Add a flag mapping for the current channel",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 		Options: []discord.CommandOption{
 			&discord.StringOption{
 				OptionName:  "abbr",
@@ -120,8 +147,12 @@ var commandList = []api.CreateCommandData{
 		},
 	},
 	{
-		Name:        "remove-flag-mapping",
-		Description: "Remove a flag mapping for the current or provided channel",
+		Name:           "remove-flag-mapping",
+		Description:    "Remove a flag mapping for the current or provided channel",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 		Options: []discord.CommandOption{
 			&discord.StringOption{
 				OptionName:  "abbr",
@@ -138,12 +169,42 @@ var commandList = []api.CreateCommandData{
 		},
 	},
 	{
-		Name:        "list-flags",
-		Description: "show all known flags",
+		Name:           "list-flags",
+		Description:    "show all known flags",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
 	},
 	{
-		Name:        "update-servers",
-		Description: "Update the server list",
+		Name:           "start",
+		Description:    "Start the bot for  the given channel",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
+		Options: []discord.CommandOption{
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
+				Description: "The channel id of the channel you want to start the bot for.",
+				Required:    false,
+			},
+		},
+	},
+	{
+		Name:           "stop",
+		Description:    "Stop the bot for the given channel",
+		NoDMPermission: true,
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
+		Options: []discord.CommandOption{
+			&discord.ChannelOption{
+				OptionName:  channelOptionName,
+				Description: "The channel id of the channel you want to stop the bot for.",
+				Required:    false,
+			},
+		},
 	},
 }
 
@@ -181,9 +242,13 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 
 	r := cmdroute.NewRouter()
 
+	// bot owner commands
 	r.AddFunc("list-guilds", bot.listGuilds)
 	r.AddFunc("add-guild", bot.addGuild)
 	r.AddFunc("remove-guild", bot.removeGuild)
+	r.AddFunc("update-servers", bot.updateServerList)
+
+	// user commands
 	r.AddFunc("list-channels", bot.listChannels)
 	r.AddFunc("add-channel", bot.addChannel)
 	r.AddFunc("remove-channel", bot.removeChannel)
@@ -191,7 +256,8 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 	r.AddFunc("add-flag-mapping", bot.addFlagMapping)
 	r.AddFunc("list-flag-mappings", bot.listFlagMappings)
 	r.AddFunc("remove-flag-mapping", bot.removeFlagMapping)
-	r.AddFunc("update-servers", bot.updateServerList)
+	r.AddFunc("start", bot.startChannel)
+	r.AddFunc("stop", bot.stopChannel)
 
 	s.AddInteractionHandler(r)
 	s.AddIntents(
@@ -199,15 +265,16 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 	)
 
 	if guildID != discord.NullGuildID {
-		_, err = s.BulkOverwriteGuildCommands(app.ID, guildID, commandList)
+		_, err = s.BulkOverwriteGuildCommands(app.ID, guildID, ownerCommandList)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		err = cmdroute.OverwriteCommands(s, commandList)
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	// update user facing commands
+	err = cmdroute.OverwriteCommands(s, userCommandList)
+	if err != nil {
+		return nil, err
 	}
 
 	return bot, nil

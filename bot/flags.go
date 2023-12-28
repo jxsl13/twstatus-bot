@@ -13,7 +13,7 @@ import (
 )
 
 func (b *Bot) listFlags(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	flags, err := dao.GetFlagList(ctx, b.db)
+	flags, err := dao.ListFlags(ctx, b.db)
 	if err != nil {
 		return errorResponse(err)
 	}

@@ -10,7 +10,17 @@ import (
 )
 
 func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
-	_, err := tx.ExecContext(ctx, `DELETE FROM tw_servers`)
+	flags, err := ListFlags(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	knownFlags := make(map[int]bool)
+	for _, flag := range flags {
+		knownFlags[flag.ID] = true
+	}
+
+	_, err = tx.ExecContext(ctx, `DELETE FROM tw_servers`)
 	if err != nil {
 		return err
 	}
@@ -74,7 +84,7 @@ REPLACE INTO tw_server_clients (
 				continue
 			}
 
-			if !model.KnownFlag(client.Country) {
+			if !knownFlags[client.Country] {
 				// set to known
 				client.Country = -1
 			}

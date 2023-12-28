@@ -275,8 +275,3 @@ func Flags() []Flag {
 	}
 	return result
 }
-
-func KnownFlag(id int) bool {
-	_, found := flags[id]
-	return found
-}

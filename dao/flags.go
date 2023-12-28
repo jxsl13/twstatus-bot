@@ -7,7 +7,7 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func GetFlagList(ctx context.Context, conn Conn) ([]model.Flag, error) {
+func ListFlags(ctx context.Context, conn Conn) ([]model.Flag, error) {
 	rows, err := conn.QueryContext(ctx, `SELECT flag_id, abbr, emoji FROM flags ORDER BY abbr;`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query flags: %w", err)

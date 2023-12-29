@@ -1,4 +1,4 @@
-.PHONY: build deploy redeploy
+.PHONY: build deploy redeploy start stop
 
 build:
 	go build .

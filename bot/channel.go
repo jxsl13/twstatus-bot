@@ -46,7 +46,7 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 	channel := model.Channel{
 		GuildID: data.Event.GuildID,
 		ID:      optionalChannelID(data),
-		Running: 0,
+		Running: false,
 	}
 	err = dao.AddChannel(ctx, tx, channel)
 	if err != nil {

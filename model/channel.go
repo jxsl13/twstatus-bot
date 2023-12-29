@@ -10,7 +10,7 @@ import (
 type Channel struct {
 	GuildID discord.GuildID   `discord:"guild_id"`
 	ID      discord.ChannelID `discord:"id"`
-	Running int               `discord:"running"`
+	Running bool              `discord:"running"`
 }
 
 func (c Channel) String() string {
@@ -19,14 +19,10 @@ func (c Channel) String() string {
 
 func (c Channel) StatusString() string {
 	active := "inactive"
-	if c.IsRunning() {
+	if c.Running {
 		active = "active"
 	}
 	return fmt.Sprintf("%s (%s)", c.String(), active)
-}
-
-func (c *Channel) IsRunning() bool {
-	return c.Running != 0
 }
 
 type Channels []Channel

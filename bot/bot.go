@@ -61,6 +61,10 @@ var ownerCommandList = []api.CreateCommandData{
 		Name:        "update-servers",
 		Description: "Update the server list",
 	},
+	{
+		Name:        "update-messages",
+		Description: "Update all discord messages with server status lists",
+	},
 }
 
 var userCommandList = []api.CreateCommandData{
@@ -136,7 +140,7 @@ var userCommandList = []api.CreateCommandData{
 				OptionName:  "emoji",
 				Description: "The emoji you want to use for this flag (any text).",
 				Required:    true,
-				MinLength:   option.NewInt(3), // :X:
+				MinLength:   option.NewInt(1), // :X:
 				MaxLength:   option.NewInt(256),
 			},
 			&discord.ChannelOption{
@@ -277,7 +281,8 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 	r.AddFunc("list-guilds", bot.listGuilds)
 	r.AddFunc("add-guild", bot.addGuild)
 	r.AddFunc("remove-guild", bot.removeGuild)
-	r.AddFunc("update-servers", bot.updateServerList)
+	r.AddFunc("update-servers", bot.updateServerListCommand)
+	r.AddFunc("update-messages", bot.updateDiscordMessagesCommand)
 
 	// user commands
 	r.AddFunc("list-channels", bot.listChannels)

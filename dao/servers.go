@@ -5,9 +5,117 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	"github.com/jxsl13/twstatus-bot/model"
 )
+
+var activeServersSQL = fmt.Sprintf(`
+SELECT
+	c.guild_id,
+	c.channel_id,
+	t.message_id,
+	ts.address,
+	ts.protocols,
+	ts.name,
+	ts.gametype,
+	ts.passworded,
+	ts.map,
+	ts.map_sha256sum,
+	ts.map_size,
+	ts.version,
+	ts.max_clients,
+	ts.max_players,
+	ts.score_kind,
+	tsc.name,
+	tsc.clan,
+	tsc.country_id,
+	(CASE WHEN tsc.score = -9999 THEN %d ELSE tsc.score END) as score,
+	tsc.is_player,
+	f.abbr,
+	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+FROM channels c
+JOIN tracking t ON c.channel_id = t.channel_id
+JOIN tw_servers ts ON t.address = ts.address
+JOIN tw_server_clients tsc ON ts.address = tsc.address
+JOIN flags f ON tsc.country_id = f.flag_id
+LEFT JOIN flag_mappings fm ON
+	(
+		t.guild_id = fm.guild_id AND
+		t.channel_id = fm.channel_id AND
+		tsc.country_id = fm.flag_id
+	)
+WHERE c.running = 1
+ORDER BY c.guild_id, c.channel_id, t._rowid_, score DESC, tsc.name ASC`, math.MaxInt)
+
+func ActiveServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
+	rows, err := conn.QueryContext(ctx, activeServersSQL) // stay architecture independent
+	if err != nil {
+		return nil, fmt.Errorf("failed to query active servers: %w", err)
+	}
+	defer rows.Close()
+
+	servers = make(map[model.Target]model.ServerStatus)
+	for rows.Next() {
+		var (
+			target    model.Target
+			server    model.ServerStatus
+			client    model.ClientStatus
+			protocols []byte
+		)
+
+		err = rows.Scan(
+			&target.GuildID,
+			&target.ChannelID,
+			&target.MessageID,
+
+			&server.Address,
+			&protocols,
+			&server.Name,
+			&server.Gametype,
+			&server.Passworded,
+			&server.Map,
+			&server.MapSha256Sum,
+			&server.MapSize,
+			&server.Version,
+			&server.MaxClients,
+			&server.MaxPlayers,
+			&server.ScoreKind,
+
+			&client.Name,
+			&client.Clan,
+			&client.Country,
+			&client.Score,
+			&client.IsPlayer,
+			&client.FlagAbbr,
+			&client.FlagEmoji,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan server status: %w", err)
+		}
+
+		s := servers[target]
+		s.Address = server.Address
+		err = json.Unmarshal(protocols, &s.Protocols)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
+		}
+		s.Name = server.Name
+		s.Gametype = server.Gametype
+		s.Passworded = server.Passworded
+		s.Map = server.Map
+		s.MapSha256Sum = server.MapSha256Sum
+		s.MapSize = server.MapSize
+		s.Version = server.Version
+		s.MaxClients = server.MaxClients
+		s.MaxPlayers = server.MaxPlayers
+		s.ScoreKind = server.ScoreKind
+		s.Clients = append(s.Clients, client)
+
+		servers[target] = s
+	}
+	return servers, nil
+}
 
 func ListServers(ctx context.Context, conn Conn) (servers []model.Server, err error) {
 	rows, err := conn.QueryContext(ctx, `

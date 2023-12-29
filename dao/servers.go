@@ -5,12 +5,32 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math"
 
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-var activeServersSQL = fmt.Sprintf(`
+func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.Target]model.ServerStatus, err error) {
+	servers, err = activeServers(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	clients, err := activeClients(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	for target := range servers {
+		server := servers[target]
+		server.Clients = clients[target]
+		servers[target] = server
+	}
+
+	return servers, nil
+}
+
+func activeServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
+	serverRows, err := conn.QueryContext(ctx, `
 SELECT
 	c.guild_id,
 	c.channel_id,
@@ -26,45 +46,25 @@ SELECT
 	ts.version,
 	ts.max_clients,
 	ts.max_players,
-	ts.score_kind,
-	tsc.name,
-	tsc.clan,
-	tsc.country_id,
-	(CASE WHEN tsc.score = -9999 THEN %d ELSE tsc.score END) as score,
-	tsc.is_player,
-	f.abbr,
-	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+	ts.score_kind
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN tw_servers ts ON t.address = ts.address
-JOIN tw_server_clients tsc ON ts.address = tsc.address
-JOIN flags f ON tsc.country_id = f.flag_id
-LEFT JOIN flag_mappings fm ON
-	(
-		t.guild_id = fm.guild_id AND
-		t.channel_id = fm.channel_id AND
-		tsc.country_id = fm.flag_id
-	)
 WHERE c.running = 1
-ORDER BY c.guild_id, c.channel_id, t._rowid_, score DESC, tsc.name ASC`, math.MaxInt)
-
-func ActiveServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
-	rows, err := conn.QueryContext(ctx, activeServersSQL) // stay architecture independent
+`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active servers: %w", err)
 	}
-	defer rows.Close()
+	defer serverRows.Close()
 
 	servers = make(map[model.Target]model.ServerStatus)
-	for rows.Next() {
+	for serverRows.Next() {
 		var (
 			target    model.Target
 			server    model.ServerStatus
-			client    model.ClientStatus
 			protocols []byte
 		)
-
-		err = rows.Scan(
+		err = serverRows.Scan(
 			&target.GuildID,
 			&target.ChannelID,
 			&target.MessageID,
@@ -81,6 +81,61 @@ func ActiveServers(ctx context.Context, conn Conn) (servers map[model.Target]mod
 			&server.MaxClients,
 			&server.MaxPlayers,
 			&server.ScoreKind,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan server status: %w", err)
+		}
+		err = json.Unmarshal(protocols, &server.Protocols)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
+		}
+
+		server.Clients = make(model.ClientStatusList, 0, 4)
+		servers[target] = server
+	}
+	return servers, nil
+}
+
+func activeClients(ctx context.Context, conn Conn) (map[model.Target]model.ClientStatusList, error) {
+	rows, err := conn.QueryContext(ctx, `
+SELECT
+	c.guild_id,
+	c.channel_id,
+	t.message_id,
+	tsc.name,
+	tsc.clan,
+	tsc.country_id,
+	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END) as score,
+	tsc.is_player,
+	f.abbr,
+	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+FROM channels c
+JOIN tracking t ON c.channel_id = t.channel_id
+JOIN tw_server_clients tsc ON t.address = tsc.address
+JOIN flags f ON tsc.country_id = f.flag_id
+LEFT JOIN flag_mappings fm ON
+	(
+		t.guild_id = fm.guild_id AND
+		t.channel_id = fm.channel_id AND
+		tsc.country_id = fm.flag_id
+	)
+WHERE c.running = 1
+ORDER BY c.guild_id, c.channel_id, t._rowid_, score DESC, tsc.name ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query active players: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[model.Target]model.ClientStatusList)
+	for rows.Next() {
+		var (
+			target model.Target
+			client model.ClientStatus
+		)
+		err = rows.Scan(
+			&target.GuildID,
+			&target.ChannelID,
+			&target.MessageID,
 
 			&client.Name,
 			&client.Clan,
@@ -91,30 +146,16 @@ func ActiveServers(ctx context.Context, conn Conn) (servers map[model.Target]mod
 			&client.FlagEmoji,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan server status: %w", err)
+			return nil, fmt.Errorf("failed to scan client status: %w", err)
 		}
-
-		s := servers[target]
-		s.Address = server.Address
-		err = json.Unmarshal(protocols, &s.Protocols)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
-		}
-		s.Name = server.Name
-		s.Gametype = server.Gametype
-		s.Passworded = server.Passworded
-		s.Map = server.Map
-		s.MapSha256Sum = server.MapSha256Sum
-		s.MapSize = server.MapSize
-		s.Version = server.Version
-		s.MaxClients = server.MaxClients
-		s.MaxPlayers = server.MaxPlayers
-		s.ScoreKind = server.ScoreKind
-		s.Clients = append(s.Clients, client)
-
-		servers[target] = s
+		result[target] = append(result[target], client)
 	}
-	return servers, nil
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate over client status: %w", err)
+	}
+
+	return result, nil
 }
 
 func ListServers(ctx context.Context, conn Conn) (servers []model.Server, err error) {

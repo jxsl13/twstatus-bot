@@ -54,10 +54,31 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 	return src, dst, nil
 }
 
-func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
+func (b *Bot) activeServers(ctx context.Context) (m map[model.Target]model.ServerStatus, err error) {
 	b.db.Lock()
-	servers, err := dao.ActiveServers(ctx, b.db)
-	b.db.Unlock()
+	defer b.db.Unlock()
+
+	tx, closer, err := b.Tx(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = closer(err)
+	}()
+
+	servers, err := dao.ActiveServers(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	return servers, nil
+}
+
+func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
+	servers, err := b.activeServers(ctx)
+	if err != nil {
+		return 0, err
+	}
 
 	if err != nil {
 		return 0, err
@@ -69,14 +90,14 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 	var wg sync.WaitGroup
 
 	wg.Add(l)
-	for k, v := range servers {
+	for target, server := range servers {
 		go func(target model.Target, status model.ServerStatus) {
 			defer wg.Done()
 			err := b.updateDiscordMessage(target, status)
 			if err != nil {
 				log.Printf("failed to update discord message for %v: %v", target, err)
 			}
-		}(k, v)
+		}(target, server)
 	}
 	wg.Wait()
 
@@ -86,10 +107,11 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 
 func (b *Bot) updateDiscordMessage(target model.Target, status model.ServerStatus) error {
 
+	content := status.String()
 	_, err := b.state.EditMessage(
 		target.ChannelID,
 		target.MessageID,
-		status.String(),
+		content,
 	)
 	if err == nil {
 		return nil

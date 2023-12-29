@@ -100,6 +100,7 @@ func (c *rootContext) RunE(cmd *cobra.Command, args []string) error {
 		c.Config.SuperAdmins,
 		c.Config.GuildID,
 		c.Config.PollInterval,
+		c.Config.LegacyMessageFormat,
 	)
 	if err != nil {
 		return err

@@ -240,6 +240,7 @@ type Bot struct {
 	state       *state.State
 	db          *db.DB
 	superAdmins []discord.UserID
+	useEmbeds   bool
 }
 
 // New requires a discord bot token and returns a Bot instance.
@@ -251,6 +252,7 @@ func New(
 	superAdmins []discord.UserID,
 	guildID discord.GuildID,
 	pollingInterval time.Duration,
+	legacyMessageFormat bool,
 ) (*Bot, error) {
 	s := state.New("Bot " + token)
 	app, err := s.CurrentApplication()
@@ -263,6 +265,7 @@ func New(
 		state:       s,
 		db:          db,
 		superAdmins: superAdmins,
+		useEmbeds:   !legacyMessageFormat,
 	}
 
 	s.AddIntents(

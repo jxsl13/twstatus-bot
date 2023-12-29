@@ -106,12 +106,24 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 }
 
 func (b *Bot) updateDiscordMessage(target model.Target, status model.ServerStatus) error {
+	var (
+		content string
+		embeds  []discord.Embed = []discord.Embed{}
+	)
 
-	content := status.String()
+	if b.useEmbeds {
+		// new message format
+		content, embeds = status.ToDiscordMessage()
+	} else {
+		// legacy message format
+		content = status.String()
+	}
+
 	_, err := b.state.EditMessage(
 		target.ChannelID,
 		target.MessageID,
 		content,
+		embeds...,
 	)
 	if err == nil {
 		return nil
@@ -122,7 +134,15 @@ func (b *Bot) updateDiscordMessage(target model.Target, status model.ServerStatu
 		return err
 	}
 
-	if herr.Status != http.StatusNotFound {
+	editingTooFrequently := herr.Status == http.StatusTooManyRequests && herr.Code == 30046
+	if editingTooFrequently {
+		// try again later
+		log.Printf("failed to update discord message for %s: %v", target, err)
+		return nil
+	}
+
+	isNotFound := herr.Status == http.StatusNotFound
+	if !isNotFound {
 		return herr
 	}
 

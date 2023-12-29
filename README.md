@@ -30,6 +30,7 @@ Environment variables:
   TWBOT_DB_WAL              Enable Write-Ahead-Log for SQLite (default: "false")
   TWBOT_DISCORD_GUILD_ID    Discord Bot Owner Guild ID
   TWBOT_POLL_INTERVAL       Poll interval for DDNet's http master server (default: "16s")
+  TWBOT_LEGACY_FORMAT       Use legacy message format. If disabled, rich text embeddings will be used. (default: "false")
 
 Usage:
   twstatus-bot [flags]
@@ -46,6 +47,7 @@ Flags:
   -g, --discord-guild-id string   Discord Bot Owner Guild ID
   -t, --discord-token string      Discord App token.
   -h, --help                      help for twstatus-bot
+  -l, --legacy-format             Use legacy message format. If disabled, rich text embeddings will be used.
   -p, --poll-interval duration    Poll interval for DDNet's http master server (default 16s)
   -a, --super-admins string       Comma separated list of Discord User IDs that are super admins.
 

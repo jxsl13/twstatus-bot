@@ -21,7 +21,8 @@ type Config struct {
 	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Bot Owner Guild ID"`
 	GuildID       discord.GuildID
 
-	PollInterval time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`
+	PollInterval        time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`
+	LegacyMessageFormat bool          `koanf:"legacy.format" short:"l" description:"Use legacy message format. If disabled, rich text embeddings will be used."`
 }
 
 func (c *Config) Validate() error {

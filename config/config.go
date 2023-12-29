@@ -19,7 +19,7 @@ type Config struct {
 	DatabaseDir string `koanf:"db.dir" short:"d" description:"Database directory"`
 	WAL         bool   `koanf:"db.wal" short:"w" description:"Enable Write-Ahead-Log for SQLite"`
 
-	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Guild ID (for debugging only)"`
+	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Bot Owner Guild ID"`
 	GuildID       discord.GuildID
 
 	PollInterval time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`

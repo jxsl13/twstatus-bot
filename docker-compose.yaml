@@ -14,5 +14,6 @@ services:
         TWBOT_DB_WAL: ${TWBOT_DB_WAL:-false}
         TWBOT_DISCORD_GUILD_ID: ${TWBOT_DISCORD_GUILD_ID:?err}
         TWBOT_POLL_INTERVAL: ${TWBOT_POLL_INTERVAL:-16s}
+        TWBOT_LEGACY_FORMAT: ${TWBOT_LEGACY_FORMAT:-false}
     volumes:
       - .:/data

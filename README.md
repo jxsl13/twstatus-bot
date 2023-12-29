@@ -21,6 +21,23 @@ All of these commands provide an optional parameter called `channel` which you c
 
 
 ## Hoster guide
+In case you want to host this yourself, you can use this guide to do so.
+
+### build instructions
+
+There are about three ways to get you up and running.
+In case that you have the Go compiler toolchain installed, you can execute:
+```shell
+go install github.com/jxsl13/twstatus-bot@latest
+```
+This downloads, compiles and installs the executable into `echo "$(go env GOPATH)/bin"`.
+
+Alternatively you can clone this repository and build the executable yourself.
+Use `make build` or `go build .` for that purpose.
+
+Lastly, you can build and deploy the docker container using `docker compose` by calling `make deploy` (`make redeploy` and `make stop`).
+
+### Usage
 Usage:
 ```
 Environment variables:

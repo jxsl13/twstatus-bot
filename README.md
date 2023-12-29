@@ -2,6 +2,23 @@
 
 This is the more user friendly variant of the Teeworlds Server Status Bot which uses the DDNet HTTP master servers for fetching its data contrary to polling each individual server on its own.
 
+## User guide
+
+Add this bot to your Discord server: [Click here](https://discord.com/api/oauth2/authorize?client_id=628902630617513985&permissions=18685255740480&scope=bot)
+
+
+Specify which channel you want to add for the bot to post into.
+This is done by simply executing the command `/add-channel` in the channel that the bot will write the server status messages.
+Afterwards you stay in the same channel and add tracking for your Teeworlds servers like this `/add-tracking 123.123.123.123:8301` or for ipv6 addresses you use `/add-tracking [fe80::9656:d028:8652:66b6]:8303`
+
+If you want to remove tracking, you simply delete the messages that the bot created.
+
+When you are done with your setup, you finally need to activate the channel to be updated by the bot like this `/start` in the corresponding channel.
+
+All of these commadns provide an optional parameter called `channel` which you can use to execute all of these commands in a different channel from the channel that you want to use for posting server status updates.
+
+
+# Hoster guide
 Usage:
 ```
 Environment variables:

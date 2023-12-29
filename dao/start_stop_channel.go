@@ -15,7 +15,7 @@ func StartChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, chan
 		return c, err
 	}
 
-	if channel.IsRunning() {
+	if channel.Running {
 		return c, fmt.Errorf("channel %s is already active", channel)
 	}
 
@@ -36,7 +36,7 @@ func StopChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, chann
 		return c, err
 	}
 
-	if !channel.IsRunning() {
+	if !channel.Running {
 		return c, fmt.Errorf("channel %s is already inactive", channel)
 	}
 

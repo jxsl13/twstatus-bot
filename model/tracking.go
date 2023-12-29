@@ -68,6 +68,8 @@ func (ss ServerStatus) String() string {
 type ClientStatusList []ClientStatus
 
 func (clients ClientStatusList) Format(scoreKind string) string {
+	const maxCharacters = 2000 - 128
+
 	var sb strings.Builder
 
 	longestName := 0
@@ -84,7 +86,6 @@ func (clients ClientStatusList) Format(scoreKind string) string {
 
 	nameFmtStr := fmt.Sprintf("%%-%ds", longestName)
 	clanFmtStr := fmt.Sprintf("%%-%ds", longestClan)
-
 	if scoreKind == "time" {
 		// from smallest to biggest
 		for i := len(clients) - 1; i >= 0; i-- {
@@ -92,8 +93,12 @@ func (clients ClientStatusList) Format(scoreKind string) string {
 			line := client.Format(nameFmtStr, clanFmtStr, scoreKind)
 
 			// discord character limit
-			if sb.Len()+len(line) > 2000 {
-				sb.WriteString("...\n")
+			if sb.Len()+len(line) > maxCharacters {
+				additional := i + 1
+				if additional > 0 {
+					sb.WriteString(fmt.Sprintf("... and %d more\n", additional))
+				}
+				break
 			} else {
 				sb.WriteString(line)
 			}
@@ -105,8 +110,12 @@ func (clients ClientStatusList) Format(scoreKind string) string {
 			line := client.Format(nameFmtStr, clanFmtStr, scoreKind)
 
 			// discord character limit
-			if sb.Len()+len(line) > 2000 {
-				sb.WriteString("...\n")
+			if sb.Len()+len(line) > maxCharacters {
+				additional := len(clients) - i
+				if additional > 0 {
+					sb.WriteString(fmt.Sprintf("... and %d more\n", len(clients)-i))
+				}
+				break
 			} else {
 				sb.WriteString(line)
 			}

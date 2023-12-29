@@ -13,6 +13,9 @@ import (
 
 // optional channel id parameter
 func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+	b.db.Lock()
+	defer b.db.Unlock()
+
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
 		return errorResponse(err)
@@ -42,6 +45,9 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 
 // optional channel id parameter
 func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+	b.db.Lock()
+	defer b.db.Unlock()
+
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
 		return errorResponse(err)

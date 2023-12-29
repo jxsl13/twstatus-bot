@@ -90,7 +90,7 @@ VALUES (?, ?, ?);`,
 
 	if err != nil {
 		if IsPrimaryKeyConstraintErr(err) {
-			return fmt.Errorf("%w: channel %d", ErrAlreadyExists, channel.ID)
+			return fmt.Errorf("%w: channel %s", ErrAlreadyExists, channel)
 		}
 		return fmt.Errorf("failed to insert channel %d: %w", channel.ID, err)
 	}

@@ -2,11 +2,14 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/model"
@@ -16,6 +19,9 @@ func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.In
 	if !b.IsSuperAdmin(data.Event.SenderID()) {
 		return ErrAccessForbidden()
 	}
+
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	guilds, err := dao.ListGuilds(ctx, b.db)
 	if err != nil {
@@ -33,7 +39,7 @@ type AddGuildOpts struct { // optional (taken from current guild)
 	Description string `discord:"description"` // required
 }
 
-func (b *Bot) addGuild(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+func (b *Bot) addGuildCommand(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 	if !b.IsSuperAdmin(data.Event.SenderID()) {
 		return ErrAccessForbidden()
 	}
@@ -52,6 +58,9 @@ func (b *Bot) addGuild(ctx context.Context, data cmdroute.CommandData) *api.Inte
 		return errorResponse(err)
 	}
 
+	b.db.Lock()
+	defer b.db.Unlock()
+
 	err = dao.AddGuild(ctx, b.db, model.Guild{
 		ID:          id,
 		Description: opts.Description,
@@ -68,7 +77,7 @@ func (b *Bot) addGuild(ctx context.Context, data cmdroute.CommandData) *api.Inte
 	}
 }
 
-func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
 	if !b.IsSuperAdmin(data.Event.SenderID()) {
 		return ErrAccessForbidden()
 	}
@@ -80,6 +89,9 @@ func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) (resp 
 	} else {
 		id = data.Event.GuildID
 	}
+
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
@@ -101,5 +113,46 @@ func (b *Bot) removeGuild(ctx context.Context, data cmdroute.CommandData) (resp 
 	return &api.InteractionResponseData{
 		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,
+	}
+}
+
+func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
+	b.db.Lock()
+	defer b.db.Unlock()
+
+	err := dao.AddGuild(b.ctx, b.db, model.Guild{
+		ID:          e.ID,
+		Description: e.Name,
+	})
+	if err != nil && !errors.Is(err, dao.ErrAlreadyExists) {
+		log.Printf("failed to add guild %d (%s): %v", e.ID, e.Name, err)
+	} else if errors.Is(err, dao.ErrAlreadyExists) {
+		log.Printf("guild %d (%s) already exists", e.ID, e.Name)
+	} else {
+		log.Printf("added guild %d (%s)", e.ID, e.Name)
+	}
+}
+
+func (b *Bot) handleRemoveGuild(e *gateway.GuildDeleteEvent) {
+	b.db.Lock()
+	defer b.db.Unlock()
+
+	tx, closer, err := b.Tx(b.ctx)
+	if err != nil {
+		log.Printf("failed to create transaction for deletion of guild %d: %v", e.ID, err)
+		return
+	}
+	defer func() {
+		err = closer(err)
+		if err != nil {
+			log.Printf("failed to close transactionfor deletion of guild %d: %v", e.ID, err)
+		}
+	}()
+
+	guild, err := dao.RemoveGuild(b.ctx, tx, e.ID)
+	if err != nil {
+		log.Printf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
+	} else {
+		log.Printf("removed guild %d (%s)", e.ID, guild.Description)
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
+	"github.com/jxsl13/twstatus-bot/db"
 )
 
 const (
@@ -191,10 +192,9 @@ var userCommandList = []api.CreateCommandData{
 		Options: []discord.CommandOption{
 			&discord.StringOption{
 				OptionName:  "address",
-				Description: "The address of the server you want to track.",
+				Description: "One or a list of comma separated server addresses that you want to track.",
 				Required:    true,
 				MinLength:   option.NewInt(9),
-				MaxLength:   option.NewInt(44),
 			},
 			&discord.ChannelOption{
 				OptionName:  channelOptionName,
@@ -238,7 +238,7 @@ var userCommandList = []api.CreateCommandData{
 type Bot struct {
 	ctx         context.Context
 	state       *state.State
-	db          *sql.DB
+	db          *db.DB
 	superAdmins []discord.UserID
 }
 
@@ -247,7 +247,7 @@ type Bot struct {
 func New(
 	ctx context.Context,
 	token string,
-	db *sql.DB,
+	db *db.DB,
 	superAdmins []discord.UserID,
 	guildID discord.GuildID,
 	pollingInterval time.Duration,
@@ -285,13 +285,15 @@ func New(
 
 	// requires guild message intents
 	s.AddHandler(bot.handleMessageDeletion)
+	s.AddHandler(bot.handleAddGuild)
+	s.AddHandler(bot.handleRemoveGuild)
 
 	r := cmdroute.NewRouter()
 
 	// bot owner commands
 	r.AddFunc("list-guilds", bot.listGuilds)
-	r.AddFunc("add-guild", bot.addGuild)
-	r.AddFunc("remove-guild", bot.removeGuild)
+	r.AddFunc("add-guild", bot.addGuildCommand)
+	r.AddFunc("remove-guild", bot.removeGuildCommand)
 	r.AddFunc("update-servers", bot.updateServerListCommand)
 	r.AddFunc("update-messages", bot.updateDiscordMessagesCommand)
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"os/signal"
@@ -55,7 +54,7 @@ func NewRootCmd() *cobra.Command {
 type rootContext struct {
 	Ctx    context.Context
 	Config *config.Config
-	DB     *sql.DB
+	DB     *db.DB
 }
 
 func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args []string) error {

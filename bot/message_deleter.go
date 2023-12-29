@@ -8,10 +8,12 @@ import (
 )
 
 func (b *Bot) handleMessageDeletion(e *gateway.MessageDeleteEvent) {
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	// delete tracking messages from db in case someone deletes any message
 	err := dao.RemoveTrackingByMessageID(b.ctx, b.db, e.GuildID, e.ID)
 	if err != nil {
-		log.Printf("failed to remove tracking of message id: %s: %v", e.ID, err)
+		log.Printf("failed to remove tracking of guild %s and message id: %s: %v", e.GuildID, e.ID, err)
 	}
 }

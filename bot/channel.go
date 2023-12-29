@@ -13,6 +13,9 @@ import (
 )
 
 func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	b.db.Lock()
+	defer b.db.Unlock()
+
 	guildId := data.Event.GuildID
 	channels, err := dao.ListChannels(ctx, b.db, guildId)
 	if err != nil {
@@ -26,6 +29,9 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 }
 
 func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+	b.db.Lock()
+	defer b.db.Unlock()
+
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
 		return errorResponse(err)
@@ -55,6 +61,8 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 }
 
 func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {

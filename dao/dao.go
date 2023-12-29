@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jxsl13/twstatus-bot/db"
 	"github.com/jxsl13/twstatus-bot/model"
 	"modernc.org/sqlite"
 )
@@ -43,7 +44,7 @@ type Conn interface {
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
 }
 
-func InitDatabase(ctx context.Context, db *sql.DB, wal bool) (err error) {
+func InitDatabase(ctx context.Context, db *db.DB, wal bool) (err error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

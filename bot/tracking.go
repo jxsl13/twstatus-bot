@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strings"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -26,25 +27,37 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 
 	channelID := optionalChannelID(data)
 
-	_, err = netip.ParseAddrPort(params.Address)
-	if err != nil {
-		return errorResponse(fmt.Errorf("invalid address: %w", err))
+	addresses := strings.Split(params.Address, ",")
+	for _, address := range addresses {
+		_, err = netip.ParseAddrPort(address)
+		if err != nil {
+			return errorResponse(fmt.Errorf("invalid address: %w", err))
+		}
 	}
 
-	msg, err := b.state.SendMessage(channelID, fmt.Sprintf("initial message for %s tracking", params.Address))
-	if err != nil {
-		return errorResponse(err)
-	}
+	msgs := make([]*discord.Message, 0, len(addresses))
 	defer func() {
 		if err != nil {
-			auditReason := fmt.Sprintf("failed to add tracking for %s", params.Address)
-			_ = b.state.DeleteMessage(
-				channelID,
-				msg.ID,
-				api.AuditLogReason(auditReason),
-			)
+			for idx, msg := range msgs {
+				auditReason := fmt.Sprintf("failed to add tracking for %s", addresses[idx])
+				_ = b.state.DeleteMessage(
+					channelID,
+					msg.ID,
+					api.AuditLogReason(auditReason),
+				)
+			}
 		}
 	}()
+	for _, address := range addresses {
+		msg, err := b.state.SendMessage(channelID, fmt.Sprintf("initial message for %s tracking", address))
+		if err != nil {
+			return errorResponse(err)
+		}
+		msgs = append(msgs, msg)
+	}
+
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
@@ -57,17 +70,26 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 		}
 	}()
 
-	err = dao.AddTracking(ctx, tx, model.Tracking{
-		GuildID:   data.Event.GuildID,
-		ChannelID: channelID,
-		Address:   params.Address,
-		MessageID: msg.ID,
-	})
-	if err != nil {
-		return errorResponse(err)
+	for _, msg := range msgs {
+		err = dao.AddTracking(ctx, tx, model.Tracking{
+			GuildID:   data.Event.GuildID,
+			ChannelID: channelID,
+			Address:   params.Address,
+			MessageID: msg.ID,
+		})
+		if err != nil {
+			return errorResponse(err)
+		}
 	}
+
+	plural := ""
+	if len(addresses) != 1 {
+		plural = "es"
+	}
+
+	msg := fmt.Sprintf("Added tracking for %d address%s", len(addresses), plural)
 	return &api.InteractionResponseData{
-		Content: option.NewNullableString(fmt.Sprintf("Added tracking for %s", params.Address)),
+		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,
 	}
 }

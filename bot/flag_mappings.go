@@ -18,6 +18,9 @@ type AddFlagMappingParams struct {
 }
 
 func (b *Bot) listFlagMappings(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	b.db.Lock()
+	defer b.db.Unlock()
+
 	channelID := optionalChannelID(data)
 	mappings, err := dao.ListFlagMappings(ctx,
 		b.db,
@@ -40,6 +43,9 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 	if err != nil {
 		return errorResponse(err)
 	}
+
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {
@@ -88,6 +94,9 @@ func (b *Bot) removeFlagMapping(ctx context.Context, data cmdroute.CommandData) 
 	if err != nil {
 		return errorResponse(err)
 	}
+
+	b.db.Lock()
+	defer b.db.Unlock()
 
 	tx, closer, err := b.Tx(ctx)
 	if err != nil {

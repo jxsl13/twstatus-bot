@@ -1,4 +1,4 @@
-FROM golang:latest  as build
+FROM golang:alpine  as build
 
 LABEL maintainer "github.com/jxsl13"
 

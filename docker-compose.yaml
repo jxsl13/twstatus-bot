@@ -1,17 +1,18 @@
 version: "2.4"
 
 services:
-  
+
   # monitor of teeworlds servers
   twstatus-bot:
     container_name: twstatus-bot
     build: .
     restart: unless-stopped
     environment:
-        TWBOT_TOKEN: ${TWBOT_TOKEN:?err}
-        TWBOT_CHANNEL_ID: ${TWBOT_CHANNEL_ID:?err}
+        TWBOT_DISCORD_TOKEN: ${TWBOT_DISCORD_TOKEN:?err}
         TWBOT_SUPER_ADMINS: ${TWBOT_SUPER_ADMINS:?err}
-        TWBOT_DIR: ${TWBOT_DIR:/data}
-        TWBOT_SERVERS: ${TWBOT_SERVERS:?err}
-        #REFRESH_INTERVAL: ${REFRESH_INTERVAL:?err}
-        #CUSTOM_FLAGS: ${CUSTOM_FLAGS}
+        TWBOT_DB_DIR: ${TWBOT_DB_DIR:-/data}
+        TWBOT_DB_WAL: ${TWBOT_DB_WAL:-false}
+        TWBOT_DISCORD_GUILD_ID: ${TWBOT_DISCORD_GUILD_ID:?err}
+        TWBOT_POLL_INTERVAL: ${TWBOT_POLL_INTERVAL:-16s}
+    volumes:
+      - .:/data

@@ -12,7 +12,6 @@ import (
 
 type Config struct {
 	DiscordToken       string `koanf:"discord.token" short:"t" description:"Discord App token."`
-	DiscordChannelID   string `koanf:"discord.channel.id" short:"i" description:"Discord Channel ID."`
 	DiscordSuperAdmins string `koanf:"super.admins" short:"a" description:"Comma separated list of Discord User IDs that are super admins."`
 	SuperAdmins        []discord.UserID
 
@@ -28,10 +27,6 @@ type Config struct {
 func (c *Config) Validate() error {
 	if c.DiscordToken == "" {
 		return errors.New("discord token is required")
-	}
-
-	if c.DiscordChannelID == "" {
-		return errors.New("discord channel id is required")
 	}
 
 	snowflake, err := discord.ParseSnowflake(c.GuildIDString)

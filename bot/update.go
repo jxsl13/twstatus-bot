@@ -17,6 +17,7 @@ import (
 )
 
 func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
+	start := time.Now()
 	servers, err := servers.GetAllServers()
 	if err != nil {
 		return 0, 0, err
@@ -39,7 +40,12 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	return len(servers), len(serverList), nil
+
+	src = len(servers)
+	dst = len(serverList)
+
+	log.Printf("updated %d source to %d target servers in %s", src, dst, time.Since(start))
+	return src, dst, nil
 }
 
 func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
@@ -63,8 +69,8 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 		}(k, v)
 	}
 	wg.Wait()
-	dur := time.Since(start)
-	log.Printf("updated %d discord messages in %s", l, dur)
+
+	log.Printf("updated %d discord messages in %s", l, time.Since(start))
 	return l, err
 }
 

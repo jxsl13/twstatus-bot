@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/diamondburned/arikawa/v3/discord"
 )
@@ -20,6 +21,8 @@ type Config struct {
 
 	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Guild ID (for debugging only)"`
 	GuildID       discord.GuildID
+
+	PollInterval time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`
 }
 
 func (c *Config) Validate() error {

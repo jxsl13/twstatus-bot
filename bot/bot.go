@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -243,7 +244,14 @@ type Bot struct {
 
 // New requires a discord bot token and returns a Bot instance.
 // A bot token starts with Nj... and can be obtained from the discord developer portal.
-func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.UserID, guildID discord.GuildID) (*Bot, error) {
+func New(
+	ctx context.Context,
+	token string,
+	db *sql.DB,
+	superAdmins []discord.UserID,
+	guildID discord.GuildID,
+	pollingInterval time.Duration,
+) (*Bot, error) {
 	s := state.New("Bot " + token)
 	app, err := s.CurrentApplication()
 	if err != nil {
@@ -270,6 +278,9 @@ func New(ctx context.Context, token string, db *sql.DB, superAdmins []discord.Us
 		} else {
 			log.Printf("initialized server list with %d source and %d target servers", src, dst)
 		}
+
+		// start polling
+		go bot.async(pollingInterval)
 	})
 
 	// requires guild message intents

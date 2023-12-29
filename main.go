@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"time"
 
 	"log"
 
@@ -60,8 +61,9 @@ type rootContext struct {
 func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args []string) error {
 
 	c.Config = &config.Config{
-		DatabaseDir: filepath.Dir(os.Args[0]),
-		WAL:         false,
+		DatabaseDir:  filepath.Dir(os.Args[0]),
+		WAL:          false,
+		PollInterval: 16 * time.Second,
 	}
 	runParser := config.RegisterFlags(c.Config, true, cmd)
 	return func(cmd *cobra.Command, args []string) error {
@@ -98,6 +100,7 @@ func (c *rootContext) RunE(cmd *cobra.Command, args []string) error {
 		c.DB,
 		c.Config.SuperAdmins,
 		c.Config.GuildID,
+		c.Config.PollInterval,
 	)
 	if err != nil {
 		return err

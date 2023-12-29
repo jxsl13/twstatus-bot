@@ -48,7 +48,7 @@ TWBOT_POLL_INTERVAL="16s"
 
 and then execute (on Linux):
 ```shell
-$ make deploy
+make start
 ```
 
 This will build and start a docker image locally.
@@ -56,5 +56,5 @@ This will build and start a docker image locally.
 
 If you want to stop the container, you can simply execute:
 ```shell
-$ make stop
+make stop
 ```

@@ -70,11 +70,11 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 		}
 	}()
 
-	for _, msg := range msgs {
+	for idx, msg := range msgs {
 		err = dao.AddTracking(ctx, tx, model.Tracking{
 			GuildID:   data.Event.GuildID,
 			ChannelID: channelID,
-			Address:   params.Address,
+			Address:   addresses[idx],
 			MessageID: msg.ID,
 		})
 		if err != nil {

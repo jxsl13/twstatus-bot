@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strings"
 
 	"github.com/jxsl13/twstatus-bot/servers"
 )
@@ -83,7 +84,13 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 
 		scoreKind := "points"
 		if info.ClientScoreKind != nil {
-			scoreKind = string(*info.ClientScoreKind)
+			switch x := strings.ToLower(string(*info.ClientScoreKind)); x {
+			case "points", "time":
+				scoreKind = x
+			default:
+				log.Printf("unknown score kind %q of server(s) %v", x, server.Addresses)
+				scoreKind = "points"
+			}
 		}
 
 		clients := make([]Client, 0, len(info.Clients))

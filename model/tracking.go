@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ type Tracking struct {
 	Address   string // ipv4:port or [ipv6]:port
 	MessageID discord.MessageID
 }
+
+type Trackings []Tracking
 
 type Target struct {
 	GuildID   discord.GuildID
@@ -150,16 +153,7 @@ func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
 	)
 
 	if len(clients) == 0 {
-		return []discord.Embed{
-			{
-				Fields: []discord.EmbedField{
-					{
-						Value:  "No players",
-						Inline: false,
-					},
-				},
-			},
-		}
+		return []discord.Embed{}
 	}
 	var (
 		embeds               = make([]discord.Embed, 0, len(clients))
@@ -206,23 +200,32 @@ func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
 // The index that is passed to the must not be assumed to be the current position in the list.
 // Depending on the scoreKind, the iteration might happend in reverse while the index is still increasing.
 func (clients ClientStatusList) Iterate(scoreKind string, f func(idx int, client ClientStatus) bool) {
-	var continueIterating bool
-	if scoreKind == "time" {
-		// from smallest to biggest
-		start := len(clients) - 1
-		for i := start; i >= 0; i-- {
-			continueIterating = f(i-start, clients[i])
-			if !continueIterating {
-				return
-			}
+
+	list := make([]ClientStatus, len(clients))
+	copy(list, clients)
+
+	sort.Slice(list, func(i, j int) bool {
+		aSpec := list[i].IsSpectator()
+		bSpec := list[j].IsSpectator()
+
+		if aSpec && !bSpec {
+			return false
+		} else if !aSpec && bSpec {
+			return true
 		}
-	} else {
-		// normal score points ordered from biggest to smallest
-		for i := 0; i < len(clients); i++ {
-			continueIterating = f(i, clients[i])
-			if !continueIterating {
-				return
-			}
+		if scoreKind == "time" {
+			// asc
+			return list[i].Score < list[j].Score
+		} else {
+			// scoreKind == "points"
+			// desc
+			return list[i].Score > list[j].Score
+		}
+	})
+
+	for i, client := range list {
+		if !f(i, client) {
+			return
 		}
 	}
 }

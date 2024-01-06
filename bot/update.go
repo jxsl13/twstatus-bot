@@ -120,11 +120,15 @@ func (b *Bot) updateDiscordMessage(target model.Target, change model.ChangedServ
 		content = status.String()
 	}
 
-	_, err := b.state.EditMessage(
+	data := api.EditMessageData{
+		Content: option.NewNullableString(content),
+		Embeds:  &embeds,
+	}
+
+	_, err := b.state.EditMessageComplex(
 		target.ChannelID,
 		target.MessageID,
-		content,
-		embeds...,
+		data,
 	)
 	if err == nil {
 		return nil

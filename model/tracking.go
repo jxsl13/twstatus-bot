@@ -271,6 +271,7 @@ type ClientStatus struct {
 func (cs *ClientStatus) Equals(other *ClientStatus) bool {
 	return cs.Score == other.Score &&
 		cs.IsPlayer == other.IsPlayer &&
+		equalPtrType(cs.Team, other.Team) &&
 		cs.Name == other.Name &&
 		cs.Clan == other.Clan &&
 		cs.Country == other.Country &&

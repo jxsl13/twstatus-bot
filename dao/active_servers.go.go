@@ -5,11 +5,86 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
+func ChangedServers(ctx context.Context, tx *sql.Tx) (map[model.Target]model.ChangedServerStatus, error) {
+	previousServers, err := PrevActiveServers(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	currentServers, err := ActiveServers(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	changedServers := make(map[model.Target]model.ChangedServerStatus, 64)
+
+	// removed servers
+	for target := range previousServers {
+		if empty, ok := currentServers[target]; !ok {
+			changedServers[target] = model.ChangedServerStatus{
+				Prev: previousServers[target],
+				Curr: empty,
+			}
+		}
+	}
+
+	// to add
+	added := make(map[model.Target]model.ServerStatus, 64)
+	for target, server := range currentServers {
+		if prev, ok := previousServers[target]; ok {
+			// found in prev -> check if changed
+			if !server.Equals(prev) {
+				changedServers[target] = model.ChangedServerStatus{
+					Prev: prev,
+					Curr: server,
+				}
+				added[target] = server
+			}
+		} else {
+			// not found in prev -> new server
+			changedServers[target] = model.ChangedServerStatus{
+				Prev: model.ServerStatus{},
+				Curr: server,
+			}
+			added[target] = server
+		}
+	}
+
+	var messageIDs []discord.MessageID
+	for target := range changedServers {
+		messageIDs = append(messageIDs, target.MessageID)
+	}
+	err = removePrevActiveServers(ctx, tx, messageIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	err = removePrevActiveClients(ctx, tx, messageIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	err = addPrevActiveServers(ctx, tx, added)
+	if err != nil {
+		return nil, err
+	}
+
+	err = addPrevActiveClients(ctx, tx, added)
+	if err != nil {
+		return nil, err
+	}
+
+	return changedServers, nil
+}
+
 func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.Target]model.ServerStatus, err error) {
+
 	servers, err = activeServers(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -30,11 +105,13 @@ func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.Target]mo
 }
 
 func activeServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
+
 	serverRows, err := conn.QueryContext(ctx, `
 SELECT
 	c.guild_id,
 	c.channel_id,
 	t.message_id,
+	ts.timestamp,
 	ts.address,
 	ts.protocols,
 	ts.name,
@@ -49,7 +126,7 @@ SELECT
 	ts.score_kind
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
-JOIN tw_servers ts ON t.address = ts.address
+JOIN active_servers ts ON t.address = ts.address
 WHERE c.running = 1
 `)
 	if err != nil {
@@ -63,12 +140,14 @@ WHERE c.running = 1
 			target    model.Target
 			server    model.ServerStatus
 			protocols []byte
+			timestamp int64
 		)
 		err = serverRows.Scan(
 			&target.GuildID,
 			&target.ChannelID,
 			&target.MessageID,
 
+			&timestamp,
 			&server.Address,
 			&protocols,
 			&server.Name,
@@ -85,14 +164,16 @@ WHERE c.running = 1
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan server status: %w", err)
 		}
-		err = json.Unmarshal(protocols, &server.Protocols)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal protocols json: %w", err)
-		}
 
+		err = server.ProtocolsFromJSON(protocols)
+		if err != nil {
+			return nil, err
+		}
+		server.Timestamp = time.UnixMilli(timestamp)
 		server.Clients = make(model.ClientStatusList, 0, 4)
 		servers[target] = server
 	}
+
 	return servers, nil
 }
 
@@ -107,15 +188,15 @@ SELECT
 	tsc.country_id,
 	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END) as score,
 	tsc.is_player,
+	tsc.team,
 	f.abbr,
 	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
-JOIN tw_server_clients tsc ON t.address = tsc.address
+JOIN active_server_clients tsc ON t.address = tsc.address
 JOIN flags f ON tsc.country_id = f.flag_id
 LEFT JOIN flag_mappings fm ON
 	(
-		t.guild_id = fm.guild_id AND
 		t.channel_id = fm.channel_id AND
 		tsc.country_id = fm.flag_id
 	)
@@ -142,6 +223,7 @@ ORDER BY c.guild_id, c.channel_id, t._rowid_, score DESC, tsc.name ASC`)
 			&client.Country,
 			&client.Score,
 			&client.IsPlayer,
+			&client.Team,
 			&client.FlagAbbr,
 			&client.FlagEmoji,
 		)
@@ -174,7 +256,7 @@ SELECT
 	max_players,
 	score_kind,
 	clients
-FROM tw_servers
+FROM active_servers
 ORDER BY address ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query servers: %w", err)
@@ -234,18 +316,19 @@ func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
 		knownFlags[flag.ID] = true
 	}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM tw_server_clients`)
+	_, err = tx.ExecContext(ctx, `DELETE FROM active_server_clients`)
 	if err != nil {
 		return fmt.Errorf("failed to delete server clients: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM tw_servers`)
+	_, err = tx.ExecContext(ctx, `DELETE FROM active_servers`)
 	if err != nil {
 		return fmt.Errorf("failed to delete servers: %w", err)
 	}
 
 	serverStmt, err := tx.PrepareContext(ctx, `
-INSERT INTO tw_servers (
+INSERT INTO active_servers (
+	timestamp,
 	address,
 	protocols,
 	name,
@@ -259,27 +342,28 @@ INSERT INTO tw_servers (
 	max_players,
 	score_kind
 )
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?);`)
+VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare servers statement: %w", err)
 	}
 
 	clientStmt, err := tx.PrepareContext(ctx, `
-REPLACE INTO tw_server_clients (
+INSERT INTO active_server_clients (
 	address,
 	name,
 	clan,
 	country_id,
 	score,
-	is_player
-) VALUES (?,?,?,?,?,?);`)
+	is_player,
+	team
+) VALUES (?,?,?,?,?,?,?);`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare clients statement: %w", err)
 	}
 
-	var isPlayer int
 	for _, server := range servers {
 		_, err = serverStmt.ExecContext(ctx,
+			server.Timestamp.UnixMilli(),
 			server.Address,
 			string(server.ProtocolsJSON()),
 			server.Name,
@@ -308,17 +392,14 @@ REPLACE INTO tw_server_clients (
 				client.Country = -1
 			}
 
-			isPlayer = 0
-			if client.IsPlayer {
-				isPlayer = 1
-			}
 			_, err = clientStmt.ExecContext(ctx,
 				server.Address,
 				client.Name,
 				client.Clan,
 				client.Country,
 				client.Score,
-				isPlayer,
+				client.IsPlayer,
+				client.Team,
 			)
 			if err != nil {
 				return fmt.Errorf("failed to insert client %s for address %s: %w", client.Name, server.Address, err)
@@ -332,7 +413,7 @@ func ExistsServer(ctx context.Context, conn Conn, address string) (found bool, e
 	rows, err := conn.QueryContext(ctx, `
 SELECT
 	address
-FROM tw_servers
+FROM active_servers
 WHERE address = ?
 LIMIT 1;`, address)
 

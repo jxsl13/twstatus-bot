@@ -1,8 +1,9 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
-	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -36,8 +37,7 @@ func (t *Target) String() string {
 }
 
 type ServerStatus struct {
-	Target Target
-
+	Timestamp    time.Time // not used for equality checks
 	Address      string
 	Protocols    []string
 	Name         string
@@ -51,6 +51,35 @@ type ServerStatus struct {
 	MaxPlayers   int
 	ScoreKind    string
 	Clients      ClientStatusList
+}
+
+func (ss *ServerStatus) Equals(other ServerStatus) bool {
+	return ss.Clients.Equals(other.Clients) &&
+		ss.Map == other.Map &&
+		ss.MaxClients == other.MaxClients &&
+		ss.MaxPlayers == other.MaxPlayers &&
+		ss.Gametype == other.Gametype &&
+		ss.Name == other.Name &&
+		ss.Passworded == other.Passworded &&
+		slices.Equal(ss.Protocols, other.Protocols) &&
+		ss.Version == other.Version &&
+		ss.ScoreKind == other.ScoreKind &&
+		ss.Address == other.Address &&
+		equalPtrType(ss.MapSize, other.MapSize) &&
+		equalPtrType(ss.MapSha256Sum, other.MapSha256Sum)
+}
+
+func (s *ServerStatus) ProtocolsJSON() []byte {
+	data, _ := json.Marshal(s.Protocols)
+	return data
+}
+
+func (s *ServerStatus) ProtocolsFromJSON(data []byte) error {
+	err := json.Unmarshal(data, &s.Protocols)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal protocols: %w", err)
+	}
+	return nil
 }
 
 func (ss ServerStatus) Header() string {
@@ -85,6 +114,19 @@ func (ss ServerStatus) String() string {
 
 type ClientStatusList []ClientStatus
 
+func (c ClientStatusList) Equals(other ClientStatusList) bool {
+	if len(c) != len(other) {
+		return false
+	}
+
+	for i, client := range c {
+		if !client.Equals(&other[i]) {
+			return false
+		}
+	}
+	return true
+}
+
 func (clients ClientStatusList) LongestNames() (maxNameLen, maxClanLen int) {
 	longestName := 0
 	longestClan := 0
@@ -106,6 +148,19 @@ func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
 		maxFieldsPerEmbed = 25
 		maxEmbeds         = 10
 	)
+
+	if len(clients) == 0 {
+		return []discord.Embed{
+			{
+				Fields: []discord.EmbedField{
+					{
+						Value:  "No players",
+						Inline: false,
+					},
+				},
+			},
+		}
+	}
 	var (
 		embeds               = make([]discord.Embed, 0, len(clients))
 		embed  discord.Embed = discord.Embed{
@@ -208,13 +263,36 @@ type ClientStatus struct {
 	Country   int
 	Score     int
 	IsPlayer  bool
+	Team      *int
 	FlagAbbr  string
 	FlagEmoji string // mapped emoji
 }
 
+func (cs *ClientStatus) Equals(other *ClientStatus) bool {
+	return cs.Score == other.Score &&
+		cs.IsPlayer == other.IsPlayer &&
+		cs.Name == other.Name &&
+		cs.Clan == other.Clan &&
+		cs.Country == other.Country &&
+		cs.FlagAbbr == other.FlagAbbr &&
+		cs.FlagEmoji == other.FlagEmoji
+}
+
+func (c *ClientStatus) IsSpectator() bool {
+	if c.Team != nil {
+		return *c.Team == -1
+	}
+
+	return !c.IsPlayer && c.Score <= 0
+}
+
+func (c *ClientStatus) IsBot() bool {
+	return !c.IsPlayer && !c.IsSpectator()
+}
+
 func (cs *ClientStatus) FormatScore(scoreKind string) string {
 	if scoreKind == "time" {
-		if cs.Score == 0 || cs.Score == -9999 || cs.Score == math.MaxInt { // no times or invalid times
+		if cs.Score == 0 || cs.IsSpectator() { // no times or invalid times
 			return ""
 		} else {
 			return (time.Second * time.Duration(cs.Score)).String()
@@ -244,15 +322,17 @@ func (cs *ClientStatus) Format(nameFormat, clanFormat, scoreKind string) string 
 	}
 
 	robot := ""
-	if !cs.IsPlayer {
-		if score == "" {
-			robot = ":robot:"
-		} else {
-			robot = " :robot:" // append a robot emoji behind robots
-		}
+	if score != "" {
+		robot += " "
 	}
 
-	return fmt.Sprintf("%s %s %s %s%s\n", cs.FlagEmoji, name, clan, score, robot)
+	if cs.IsSpectator() {
+		robot += ":eye:"
+	} else if cs.IsBot() {
+		robot += ":robot:"
+	}
+
+	return fmt.Sprintf("%s %s %s %s%s", cs.FlagEmoji, name, clan, score, robot)
 }
 
 func (cs *ClientStatus) ToEmbedFields(nameFormat, clanFormat, scoreKind string) (fields []discord.EmbedField, charLen int) {
@@ -264,4 +344,14 @@ func (cs *ClientStatus) ToEmbedFields(nameFormat, clanFormat, scoreKind string) 
 			Inline: false,
 		},
 	}, len(line)
+}
+
+func equalPtrType[T comparable](a, b *T) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a != nil && b == nil || a == nil && b != nil {
+		return false
+	}
+	return *a == *b
 }

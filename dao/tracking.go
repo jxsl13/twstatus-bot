@@ -10,6 +10,11 @@ import (
 )
 
 func AddTracking(ctx context.Context, tx *sql.Tx, tracking model.Tracking) (err error) {
+	_, err = GetChannel(ctx, tx, tracking.GuildID, tracking.ChannelID)
+	if err != nil {
+		return err
+	}
+
 	found, err := ExistsServer(ctx, tx, tracking.Address)
 	if err != nil {
 		return err

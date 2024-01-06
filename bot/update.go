@@ -54,7 +54,7 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 	return src, dst, nil
 }
 
-func (b *Bot) activeServers(ctx context.Context) (m map[model.Target]model.ServerStatus, err error) {
+func (b *Bot) changedServers(ctx context.Context) (m map[model.Target]model.ChangedServerStatus, err error) {
 	b.db.Lock()
 	defer b.db.Unlock()
 
@@ -66,7 +66,7 @@ func (b *Bot) activeServers(ctx context.Context) (m map[model.Target]model.Serve
 		err = closer(err)
 	}()
 
-	servers, err := dao.ActiveServers(ctx, tx)
+	servers, err := dao.ChangedServers(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -75,23 +75,23 @@ func (b *Bot) activeServers(ctx context.Context) (m map[model.Target]model.Serve
 }
 
 func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
-	servers, err := b.activeServers(ctx)
+	servers, err := b.changedServers(ctx)
 	if err != nil {
 		return 0, err
 	}
-
-	if err != nil {
-		return 0, err
-	}
-
 	l := len(servers)
+
+	log.Printf("%d messages need to be changed", l)
+	if l == 0 {
+		return 0, nil
+	}
 
 	start := time.Now()
 	var wg sync.WaitGroup
 
 	wg.Add(l)
 	for target, server := range servers {
-		go func(target model.Target, status model.ServerStatus) {
+		go func(target model.Target, status model.ChangedServerStatus) {
 			defer wg.Done()
 			err := b.updateDiscordMessage(target, status)
 			if err != nil {
@@ -102,13 +102,14 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 	wg.Wait()
 
 	log.Printf("updated %d discord messages in %s", l, time.Since(start))
-	return l, err
+	return l, nil
 }
 
-func (b *Bot) updateDiscordMessage(target model.Target, status model.ServerStatus) error {
+func (b *Bot) updateDiscordMessage(target model.Target, change model.ChangedServerStatus) error {
 	var (
 		content string
 		embeds  []discord.Embed = []discord.Embed{}
+		status                  = change.Curr
 	)
 
 	if b.useEmbeds {

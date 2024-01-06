@@ -69,13 +69,15 @@ PRAGMA journal_mode = WAL;
 
 	stmt += `
 CREATE TABLE IF NOT EXISTS guilds (
-	guild_id INTEGER NOT NULL PRIMARY KEY,
-	description TEXT NOT NULL DEFAULT ""
+	guild_id INTEGER PRIMARY KEY,
+	description TEXT NOT NULL DEFAULT ''
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS channels (
-	guild_id INTEGER NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
 	channel_id INTEGER PRIMARY KEY,
+	guild_id INTEGER
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
 	running INTEGER
 		CHECK( running IN (0,1))
 		NOT NULL DEFAULT 0,
@@ -92,63 +94,118 @@ CREATE INDEX IF NOT EXISTS flags_id ON flags(flag_id);
 
 CREATE TABLE IF NOT EXISTS flag_mappings (
 	guild_id INTEGER
-		NOT NULL
-		REFERENCES guild(guild_id),
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
 	channel_id INTEGER
-		NOT NULL
 		REFERENCES channels(channel_id)
-			ON DELETE CASCADE,
-	flag_id INTEGER NOT NULL
+		ON DELETE CASCADE,
+	flag_id INTEGER
 		REFERENCES flags(flag_id)
-			ON DELETE CASCADE,
+		ON DELETE CASCADE,
 	emoji TEXT NOT NULL,
-	PRIMARY KEY (flag_id, channel_id)
+	PRIMARY KEY (channel_id, flag_id)
 ) STRICT;
 
 CREATE TABLE IF NOT EXISTS tracking (
+	message_id INTEGER PRIMARY KEY,
 	guild_id INTEGER
-		NOT NULL
-		REFERENCES guild(guild_id),
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
 	channel_id INTEGER
-		NOT NULL
 		REFERENCES channels(channel_id)
-			ON DELETE CASCADE,
+		ON DELETE CASCADE,
 	address TEXT NOT NULL,
-	message_id INTEGER NOT NULL,
 	CONSTRAINT tracking_unique_address UNIQUE (guild_id, channel_id, address)
 	CONSTRAINT tracking_unique_message_id UNIQUE (guild_id, channel_id, message_id)
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS tw_servers (
+CREATE TABLE IF NOT EXISTS active_servers (
+	timestamp INTEGER NOT NULL,
 	address TEXT PRIMARY KEY,
 	protocols TEXT NOT NULL,
 	name TEXT NOT NULL,
 	gametype TEXT NOT NULL,
-	passworded INTEGER
-		CHECK( passworded IN (0,1))
-		NOT NULL DEFAULT 0,
+	passworded INTEGER NOT NULL DEFAULT 0
+		CHECK( passworded IN (0,1)),
 	map TEXT NOT NULL,
 	map_sha256sum TEXT,
 	map_size INTEGER,
 	version TEXT NOT NULL,
 	max_clients INTEGER NOT NULL,
 	max_players INTEGER NOT NULL,
-	score_kind TEXT
+	score_kind TEXT NOT NULL DEFAULT 'points'
 		CHECK(score_kind IN ('points','time'))
-		NOT NULL DEFAULT 'points'
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS tw_server_clients (
-	address TEXT NOT NULL
-		REFERENCES tw_servers(address)
-			ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS active_server_clients (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	message_id INTEGER
+		REFERENCES tracking(message_id)
+		ON DELETE CASCADE,
+	address TEXT
+		REFERENCES active_servers(address)
+		ON DELETE CASCADE,
 	name TEXT NOT NULL,
 	clan TEXT NOT NULL,
-	country_id INTEGER NOT NULL
+	country_id INTEGER
 		REFERENCES flags(flag_id),
 	score INTEGER NOT NULL,
 	is_player INTEGER NOT NULL
+		CHECK( is_player IN (0,1)),
+	team INTEGER
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS prev_active_servers (
+	message_id INTEGER PRIMARY KEY
+		REFERENCES tracking(message_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+	guild_id INTEGER
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
+	channel_id INTEGER
+		REFERENCES channels(channel_id)
+		ON DELETE CASCADE,
+	timestamp INTEGER NOT NULL,
+	address TEXT NOT NULL,
+	protocols TEXT NOT NULL,
+	name TEXT NOT NULL,
+	gametype TEXT NOT NULL,
+	passworded INTEGER NOT NULL DEFAULT 0
+		CHECK( passworded IN (0,1)),
+	map TEXT NOT NULL,
+	map_sha256sum TEXT,
+	map_size INTEGER,
+	version TEXT NOT NULL,
+	max_clients INTEGER NOT NULL,
+	max_players INTEGER NOT NULL,
+	score_kind TEXT NOT NULL DEFAULT 'points'
+		CHECK(score_kind IN ('points','time'))
+) STRICT;
+
+CREATE TABLE IF NOT EXISTS prev_active_server_clients (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	message_id INTEGER
+		REFERENCES tracking(message_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+	guild_id INTEGER
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
+	channel_id INTEGER
+		REFERENCES channels(channel_id)
+		ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	clan TEXT NOT NULL,
+	country_id INTEGER
+		REFERENCES flags(flag_id),
+	score INTEGER NOT NULL,
+	is_player INTEGER NOT NULL
+		CHECK( is_player IN (0,1)),
+	flag_abbr TEXT NOT NULL,
+	flag_emoji TEXT NOT NULL
+) STRICT;
+
 `
 	stmt += `
 PRAGMA foreign_key_check; -- validate foreign keys

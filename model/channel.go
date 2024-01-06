@@ -8,9 +8,9 @@ import (
 )
 
 type Channel struct {
-	GuildID discord.GuildID   `discord:"guild_id"`
-	ID      discord.ChannelID `discord:"id"`
-	Running bool              `discord:"running"`
+	GuildID discord.GuildID
+	ID      discord.ChannelID
+	Running bool
 }
 
 func (c Channel) String() string {

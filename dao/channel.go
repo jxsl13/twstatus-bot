@@ -16,8 +16,8 @@ FROM channels
 WHERE guild_id = ?
 AND channel_id = ?
 LIMIT 1;`,
-		int64(guildId),
-		int64(channelID),
+		guildId,
+		channelID,
 	)
 	if err != nil {
 		return model.Channel{}, fmt.Errorf("failed to query channel: %w", err)
@@ -81,10 +81,10 @@ ORDER BY channel_id ASC;`,
 
 func AddChannel(ctx context.Context, tx *sql.Tx, channel model.Channel) (err error) {
 	_, err = tx.ExecContext(ctx, `
-INSERT INTO channels (guild_id, channel_id, running)
-VALUES (?, ?, ?);`,
-		channel.GuildID,
+INSERT INTO channels (channel_id, guild_id, running)
+VALUES (?, ?, ?, ?);`,
 		channel.ID,
+		channel.GuildID,
 		channel.Running,
 	)
 

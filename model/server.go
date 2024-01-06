@@ -6,11 +6,13 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/jxsl13/twstatus-bot/servers"
 )
 
 type Server struct {
+	Timestamp    time.Time
 	Address      string
 	Protocols    []string
 	Name         string
@@ -51,7 +53,6 @@ func (c *Client) IsConnecting() bool {
 		c.Score == -1 &&
 		c.Clan == "" &&
 		!c.IsPlayer
-
 }
 
 type Skin struct {
@@ -73,6 +74,7 @@ type Part struct {
 
 // expands the servers.Server DTO into a slice of Server models
 func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
+	timestamp := time.Now()
 	result := make([]Server, 0, len(servers))
 
 	for _, server := range servers {
@@ -114,6 +116,7 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 
 		for addr, protocols := range m {
 			server := Server{
+				Timestamp:    timestamp,
 				Address:      addr,
 				Protocols:    protocols,
 				Name:         info.Name,

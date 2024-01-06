@@ -71,6 +71,13 @@ var ownerCommandList = []api.CreateCommandData{
 
 var userCommandList = []api.CreateCommandData{
 	{
+		Name:        "help",
+		Description: "Show this help message",
+		DefaultMemberPermissions: discord.NewPermissions(
+			discord.PermissionAdministrator,
+		),
+	},
+	{
 		Name:           "add-channel",
 		Description:    "Add a channel to the allowed channels",
 		NoDMPermission: true,
@@ -301,6 +308,7 @@ func New(
 	r.AddFunc("update-messages", bot.updateDiscordMessagesCommand)
 
 	// user commands
+	r.AddFunc("help", bot.help)
 	r.AddFunc("list-channels", bot.listChannels)
 	r.AddFunc("add-channel", bot.addChannel)
 	r.AddFunc("remove-channel", bot.removeChannel)

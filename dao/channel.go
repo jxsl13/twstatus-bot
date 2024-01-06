@@ -98,23 +98,18 @@ VALUES (?, ?, ?);`,
 	return err
 }
 
-func RemoveChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, channelID discord.ChannelID) (channel model.Channel, err error) {
+func RemoveChannel(ctx context.Context, conn Conn, guildID discord.GuildID, channelID discord.ChannelID) (err error) {
 
-	channel, err = GetChannel(ctx, tx, guildID, channelID)
-	if err != nil {
-		return model.Channel{}, err
-	}
-
-	_, err = tx.ExecContext(ctx, `
+	_, err = conn.ExecContext(ctx, `
 DELETE FROM channels
 WHERE guild_id = ?
 AND channel_id = ?;`,
-		channel.GuildID,
-		channel.ID,
+		guildID,
+		channelID,
 	)
 	if err != nil {
-		return model.Channel{}, fmt.Errorf("failed to delete channel %d: %w", channelID, err)
+		return fmt.Errorf("failed to delete channel %d: %w", channelID, err)
 	}
 
-	return channel, nil
+	return nil
 }

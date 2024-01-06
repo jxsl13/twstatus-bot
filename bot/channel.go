@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -75,11 +76,36 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 		}
 	}()
 
-	channel, err := dao.RemoveChannel(
+	var (
+		guildID   = data.Event.GuildID
+		channelID = optionalChannelID(data)
+	)
+
+	channel, err := dao.GetChannel(ctx, tx, guildID, channelID)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	trackings, err := dao.ListTrackings(ctx, tx, guildID, channelID)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	msgIDs := make([]discord.MessageID, 0, len(trackings))
+	for _, t := range trackings {
+		msgIDs = append(msgIDs, t.MessageID)
+	}
+
+	delErr := b.state.DeleteMessages(channelID, msgIDs, "channel was removed")
+	if delErr != nil {
+		log.Printf("failed to delete messages: %v", delErr)
+	}
+
+	err = dao.RemoveChannel(
 		ctx,
 		tx,
-		data.Event.GuildID,
-		optionalChannelID(data),
+		guildID,
+		channelID,
 	)
 	if err != nil {
 		return errorResponse(err)

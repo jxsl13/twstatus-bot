@@ -9,6 +9,37 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
+func ListTrackings(ctx context.Context, conn Conn, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
+	rows, err := conn.QueryContext(ctx, `
+SELECT guild_id, channel_id, address, message_id
+FROM tracking
+WHERE guild_id = ?
+AND channel_id = ?;`, guildID, channelID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trackings for channel %d: %w", channelID, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tracking model.Tracking
+		err = rows.Scan(
+			&tracking.GuildID,
+			&tracking.ChannelID,
+			&tracking.Address,
+			&tracking.MessageID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan tracking: %w", err)
+		}
+		trackings = append(trackings, tracking)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate tracking: %w", err)
+	}
+	return trackings, nil
+}
+
 func AddTracking(ctx context.Context, tx *sql.Tx, tracking model.Tracking) (err error) {
 	_, err = GetChannel(ctx, tx, tracking.GuildID, tracking.ChannelID)
 	if err != nil {

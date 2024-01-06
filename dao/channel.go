@@ -82,7 +82,7 @@ ORDER BY channel_id ASC;`,
 func AddChannel(ctx context.Context, tx *sql.Tx, channel model.Channel) (err error) {
 	_, err = tx.ExecContext(ctx, `
 INSERT INTO channels (channel_id, guild_id, running)
-VALUES (?, ?, ?, ?);`,
+VALUES (?, ?, ?);`,
 		channel.ID,
 		channel.GuildID,
 		channel.Running,

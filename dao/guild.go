@@ -35,7 +35,7 @@ func GetGuild(ctx context.Context, conn Conn, guildID discord.GuildID) (guild mo
 
 func AddGuild(ctx context.Context, conn Conn, guild model.Guild) (err error) {
 	_, err = conn.ExecContext(ctx, `INSERT INTO guilds (guild_id, description) VALUES (?, ?)`,
-		int64(guild.ID),
+		guild.ID,
 		guild.Description,
 	)
 

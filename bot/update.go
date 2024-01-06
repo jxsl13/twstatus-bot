@@ -161,7 +161,7 @@ func (b *Bot) updateDiscordMessage(target model.Target, change model.ChangedServ
 		return fmt.Errorf("failed to remove tracking of message id: %s: %w", target.MessageID, err)
 	}
 
-	log.Printf("removed tracking for guild %d and message id: %s (reason: 'message not found')", target.GuildID, target.MessageID)
+	log.Printf("removed tracking for %s (reason: 'message not found')", target)
 	return nil
 }
 

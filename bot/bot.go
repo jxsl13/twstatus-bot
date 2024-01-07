@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -14,11 +15,41 @@ import (
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/state"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
+	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/db"
+	"github.com/jxsl13/twstatus-bot/model"
+	"github.com/jxsl13/twstatus-bot/utils"
 )
 
 const (
 	channelOptionName = "channel"
+)
+
+var (
+	reactionPlayerCountNotificationMap = map[discord.APIEmoji]int{
+		discord.NewAPIEmoji(0, "1️⃣"): 1,
+		discord.NewAPIEmoji(0, "2️⃣"): 2,
+		discord.NewAPIEmoji(0, "3️⃣"): 3,
+		discord.NewAPIEmoji(0, "4️⃣"): 4,
+		discord.NewAPIEmoji(0, "5️⃣"): 5,
+		discord.NewAPIEmoji(0, "6️⃣"): 6,
+		discord.NewAPIEmoji(0, "7️⃣"): 7,
+		discord.NewAPIEmoji(0, "8️⃣"): 8,
+		discord.NewAPIEmoji(0, "9️⃣"): 9,
+		discord.NewAPIEmoji(0, "🔟"):   10,
+	}
+	reactionPlayerCountNotificationReverseMap = map[int]discord.APIEmoji{
+		1:  discord.NewAPIEmoji(0, "1️⃣"),
+		2:  discord.NewAPIEmoji(0, "2️⃣"),
+		3:  discord.NewAPIEmoji(0, "3️⃣"),
+		4:  discord.NewAPIEmoji(0, "4️⃣"),
+		5:  discord.NewAPIEmoji(0, "5️⃣"),
+		6:  discord.NewAPIEmoji(0, "6️⃣"),
+		7:  discord.NewAPIEmoji(0, "7️⃣"),
+		8:  discord.NewAPIEmoji(0, "8️⃣"),
+		9:  discord.NewAPIEmoji(0, "9️⃣"),
+		10: discord.NewAPIEmoji(0, "🔟"),
+	}
 )
 
 var ownerCommandList = []api.CreateCommandData{
@@ -248,6 +279,7 @@ type Bot struct {
 	db          *db.DB
 	superAdmins []discord.UserID
 	useEmbeds   bool
+	userId      discord.UserID
 }
 
 // New requires a discord bot token and returns a Bot instance.
@@ -280,13 +312,24 @@ func New(
 	)
 
 	s.AddHandler(func(*gateway.ReadyEvent) {
-		me, _ := s.Me()
+		me, err := s.Me()
+		if err != nil {
+			log.Fatalf("failed to get bot user: %v", err)
+		}
+		bot.userId = me.ID
+
 		log.Println("connected to the gateway as", me.Tag())
 		src, dst, err := bot.updateServers(ctx)
 		if err != nil {
 			log.Printf("failed to initialize server list: %v", err)
 		} else {
 			log.Printf("initialized server list with %d source and %d target servers", src, dst)
+		}
+
+		// sync trackings and player notification requests
+		err = bot.syncDatabaseState(ctx)
+		if err != nil {
+			log.Fatalf("failed to synchronize database with discord state: %v", err)
 		}
 
 		// start polling
@@ -297,6 +340,8 @@ func New(
 	s.AddHandler(bot.handleMessageDeletion)
 	s.AddHandler(bot.handleAddGuild)
 	s.AddHandler(bot.handleRemoveGuild)
+	s.AddHandler(bot.handleAddReactions)
+	s.AddHandler(bot.handleRemoveReactions)
 
 	r := cmdroute.NewRouter()
 
@@ -379,4 +424,114 @@ func (b *Bot) Tx(ctx context.Context) (*sql.Tx, func(error) error, error) {
 		}
 		return tx.Commit()
 	}, nil
+}
+
+func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
+	b.db.Lock()
+	defer b.db.Unlock()
+
+	tx, closer, err := b.Tx(ctx)
+	defer func() {
+		err = closer(err)
+	}()
+
+	err = dao.RemovePlayerCountNotifications(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	trackings, err := dao.ListAllTrackings(ctx, tx)
+	if err != nil {
+		return err
+	}
+
+	//msgs := make([]*discord.Message, 0, len(trackings))
+	notifications := make(map[model.UserTarget]model.PlayerCountNotification)
+
+	for _, t := range trackings {
+		log.Printf("fetching message %s for notification tracking", t.Target)
+		m, err := b.state.Message(t.ChannelID, t.MessageID)
+		if err != nil {
+			if ErrIsNotFound(err) {
+				// remove tracking of messages that were removed during downtime.
+				err = dao.RemoveTrackingByMessageID(ctx, tx, t.GuildID, t.MessageID)
+				if err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
+
+		// iterate over all message reactions
+		for _, reaction := range m.Reactions {
+			emoji := reaction.Emoji.APIString()
+			if _, ok := reactionPlayerCountNotificationMap[emoji]; !ok {
+				// none of the ones that we want to look at
+				continue
+			}
+			log.Printf("fetching users for emoji %s of message %s", emoji, t.Target)
+			users, err := b.state.Reactions(m.ChannelID, t.MessageID, emoji, 0)
+			if err != nil {
+				if ErrIsNotFound(err) {
+					continue
+				}
+				return err
+			}
+			val := reactionPlayerCountNotificationMap[emoji]
+
+			log.Printf("found %d users for emoji %s of message %s", len(users), emoji, t.Target)
+			for _, user := range users {
+				userTarget := model.UserTarget{
+					Target: t.Target,
+					UserID: user.ID,
+				}
+				if n, ok := notifications[userTarget]; ok {
+					// only persist the smallest threshold
+					if val < n.Threshold {
+						// remove previous reaction that has a bigger value
+						err = b.state.DeleteUserReaction(
+							n.ChannelID,
+							n.MessageID,
+							n.UserID,
+							reactionPlayerCountNotificationReverseMap[n.Threshold],
+						)
+						if err != nil {
+							return err
+						}
+
+						// update to new lower value
+						n.Threshold = val
+						notifications[userTarget] = n
+					} else {
+						// remove previous reaction that has a bigger value
+						err = b.state.DeleteUserReaction(
+							n.ChannelID,
+							n.MessageID,
+							n.UserID,
+							reactionPlayerCountNotificationReverseMap[val],
+						)
+						if err != nil {
+							return err
+						}
+					}
+				} else {
+					notifications[userTarget] = model.PlayerCountNotification{
+						UserTarget: userTarget,
+						Threshold:  val,
+					}
+				}
+			}
+		}
+	}
+
+	values := utils.Values(notifications)
+	sort.Sort(model.ByPlayerCountNotificationIDs(values))
+
+	err = dao.SetPlayerCountNotifications(ctx, tx, values)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

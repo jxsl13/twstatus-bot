@@ -86,7 +86,7 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 		return errorResponse(err)
 	}
 
-	trackings, err := dao.ListTrackings(ctx, tx, guildID, channelID)
+	trackings, err := dao.ListTrackingsByChannelID(ctx, tx, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}

@@ -9,7 +9,38 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func ListTrackings(ctx context.Context, conn Conn, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
+func ListAllTrackings(ctx context.Context, conn Conn) (trackings model.Trackings, err error) {
+	rows, err := conn.QueryContext(ctx, `
+SELECT guild_id, channel_id, address, message_id
+FROM tracking
+ORDER BY guild_id ASC, channel_id ASC;`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get trackings: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(model.Trackings, 0, 64)
+	for rows.Next() {
+		var tracking model.Tracking
+		err = rows.Scan(
+			&tracking.GuildID,
+			&tracking.ChannelID,
+			&tracking.Address,
+			&tracking.MessageID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan tracking: %w", err)
+		}
+		result = append(result, tracking)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate tracking: %w", err)
+	}
+	return result, nil
+}
+
+func ListTrackingsByChannelID(ctx context.Context, conn Conn, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
 	rows, err := conn.QueryContext(ctx, `
 SELECT guild_id, channel_id, address, message_id
 FROM tracking

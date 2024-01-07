@@ -16,13 +16,19 @@ import (
 // Tracking is a struct that represents a tracking message which contains
 // a single server's status.
 type Tracking struct {
-	GuildID   discord.GuildID
-	ChannelID discord.ChannelID
-	Address   string // ipv4:port or [ipv6]:port
-	MessageID discord.MessageID
+	Target
+	Address string // ipv4:port or [ipv6]:port
 }
 
 type Trackings []Tracking
+
+type ByTargetIDs []Target
+
+func (a ByTargetIDs) Len() int      { return len(a) }
+func (a ByTargetIDs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByTargetIDs) Less(i, j int) bool {
+	return a[i].Less(a[j])
+}
 
 type Target struct {
 	GuildID   discord.GuildID
@@ -30,11 +36,39 @@ type Target struct {
 	MessageID discord.MessageID
 }
 
+func (a Target) Less(other Target) bool {
+	aGuildId := a.GuildID
+	bGuildId := other.GuildID
+
+	if aGuildId < bGuildId {
+		return true
+	}
+
+	if aGuildId > bGuildId {
+		return false
+	}
+
+	// guildIds are equal
+	aChannelId := a.ChannelID
+	bChannelId := other.ChannelID
+
+	if aChannelId < bChannelId {
+		return true
+	}
+
+	if aChannelId > bChannelId {
+		return false
+	}
+
+	// channelIds are equal
+	return a.MessageID < other.MessageID
+}
+
 func (t *Target) Equals(other Target) bool {
 	return t.GuildID == other.GuildID && t.ChannelID == other.ChannelID && t.MessageID == other.MessageID
 }
 
-func (t *Target) String() string {
+func (t Target) String() string {
 	// https://discord.com/channels/628902095747285012/718814596323868766/1190423006590279791
 	return fmt.Sprintf("https://discord.com/channels/%d/%d/%d", t.GuildID, t.ChannelID, t.MessageID)
 }

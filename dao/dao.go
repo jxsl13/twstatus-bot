@@ -119,6 +119,22 @@ CREATE TABLE IF NOT EXISTS tracking (
 	CONSTRAINT tracking_unique_message_id UNIQUE (guild_id, channel_id, message_id)
 ) STRICT;
 
+CREATE TABLE IF NOT EXISTS player_count_notifications (
+	guild_id INTEGER
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
+	channel_id INTEGER
+		REFERENCES channels(channel_id)
+		ON DELETE CASCADE,
+	message_id INTEGER
+		REFERENCES tracking(message_id)
+		ON DELETE CASCADE
+		ON UPDATE CASCADE,
+	user_id INTEGER NOT NULL,
+	threshold INTEGER NOT NULL
+		CHECK( threshold > 0)
+) STRICT;
+
 CREATE TABLE IF NOT EXISTS active_servers (
 	timestamp INTEGER NOT NULL,
 	address TEXT PRIMARY KEY,

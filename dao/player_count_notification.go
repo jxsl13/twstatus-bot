@@ -2,10 +2,55 @@ package dao
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/jxsl13/twstatus-bot/model"
 )
+
+func GetTargetListNotifications(ctx context.Context, tx *sql.Tx, servers map[model.Target]model.ChangedServerStatus) (map[model.Target]model.ChangedServerStatus, error) {
+	stmt, err := tx.PrepareContext(ctx, `
+	SELECT
+	user_id,
+	threshold
+FROM player_count_notifications
+WHERE guild_id = ?
+AND channel_id = ?
+AND message_id = ?;`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare list notifications statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for t := range servers {
+		rows, err := stmt.QueryContext(ctx, t.GuildID, t.ChannelID, t.MessageID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to query notifications: %w", err)
+		}
+
+		for rows.Next() {
+			var n model.PlayerCountNotification
+			err = rows.Scan(
+				&n.UserID,
+				&n.Threshold,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to scan notification: %w", err)
+			}
+			server := servers[t]
+			if n.Notify(&server) {
+				server.UserNotifications = append(server.UserNotifications, n.UserID)
+				servers[t] = server
+			}
+		}
+		err = rows.Err()
+		if err != nil {
+			return nil, fmt.Errorf("failed to iterate notifications: %w", err)
+		}
+	}
+
+	return servers, nil
+}
 
 func ListAllPlayerCountNotifications(ctx context.Context, conn Conn) (notifications []model.PlayerCountNotification, err error) {
 	rows, err := conn.QueryContext(ctx, `

@@ -130,11 +130,10 @@ func (ss ServerStatus) Header() string {
 	return header
 }
 
-func (ss ServerStatus) ToDiscordMessage() (content string, embeds []discord.Embed) {
-	header := ss.Header()
+func (ss ServerStatus) ToEmbeds() (embeds []discord.Embed) {
 	embeds = ss.Clients.ToEmbeds(ss.ScoreKind)
 
-	return header, embeds
+	return embeds
 }
 
 func (ss ServerStatus) String() string {

@@ -114,7 +114,8 @@ func (b *Bot) updateDiscordMessage(target model.Target, change model.ChangedServ
 
 	if b.useEmbeds {
 		// new message format
-		content, embeds = status.ToDiscordMessage()
+		content = change.Content()
+		embeds = status.ToEmbeds()
 	} else {
 		// legacy message format
 		content = status.String()

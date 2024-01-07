@@ -12,6 +12,10 @@ type PlayerCountNotification struct {
 	Threshold int
 }
 
+func (p PlayerCountNotification) Notify(change *ChangedServerStatus) bool {
+	return len(change.Curr.Clients) >= p.Threshold
+}
+
 type PlayerCountNotifications []PlayerCountNotification
 
 type ByPlayerCountNotificationIDs []PlayerCountNotification

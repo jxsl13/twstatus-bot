@@ -80,6 +80,11 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (map[model.Target]model.Cha
 		return nil, err
 	}
 
+	changedServers, err = GetTargetListNotifications(ctx, tx, changedServers)
+	if err != nil {
+		return nil, err
+	}
+
 	return changedServers, nil
 }
 

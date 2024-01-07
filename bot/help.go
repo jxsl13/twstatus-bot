@@ -12,7 +12,7 @@ import (
 
 var (
 	helpLines = []string{
-		"*Usage:*",
+		"**Usage:**",
 		"This bot requires you to initially choose a channel to post the status updates to.",
 		"You can do this by using the `/add-channel` command.",
 		"Afterwards you have to add tracking of individual servers to the specified channel.",
@@ -20,7 +20,7 @@ var (
 		"Lastly, you need to start the bot for the specified channel by using the `/start` command.",
 		"In case that you want to stop the bot for a specific channel, use the `/stop` command.",
 		"",
-		"*Commands:*",
+		"**Commands:**",
 		"`/add-channel` - adds a channel to the list of channels that are being updated",
 		"`/add-tracking` - adds a server to the list of tracked servers for the specified channel",
 		"If you want to remove a specific tracking, just manually delete the message that was created by the bot.",
@@ -29,6 +29,11 @@ var (
 		"`/list-channels` - lists all channels that are registered for the currend Discord server",
 		"`/list-flags` - list all flags that are available for the `/add-flag-mapping`command",
 		"`/add-flag-mapping` - allows to ad a custom emoji for any player flag.",
+		"",
+		"**Notifications:**",
+		"You can use the following reactions to get notified when the number of players on a server is greater or equal to the specified threshold.",
+		"Use the following reactions: :one:, :two:, :three:, :four:, :five:, :six:, :seven:, :eight:, :nine:, :keycap_ten:",
+		"If you specify :one: as the threshold, you will get notified when there is at least one player on the server.",
 	}
 	helpText = strings.Join(helpLines, "\n")
 )

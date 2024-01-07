@@ -16,7 +16,8 @@ func GetTargetListNotifications(ctx context.Context, tx *sql.Tx, servers map[mod
 FROM player_count_notifications
 WHERE guild_id = ?
 AND channel_id = ?
-AND message_id = ?;`)
+AND message_id = ?
+ORDER BY user_id ASC;`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare list notifications statement: %w", err)
 	}

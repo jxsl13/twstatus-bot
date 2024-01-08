@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -13,11 +14,13 @@ func ListAllTrackings(ctx context.Context, conn Conn) (trackings model.Trackings
 	rows, err := conn.QueryContext(ctx, `
 SELECT guild_id, channel_id, address, message_id
 FROM tracking
-ORDER BY guild_id ASC, channel_id ASC;`)
+ORDER BY guild_id ASC, channel_id ASC, message_id ASC;`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get trackings: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	result := make(model.Trackings, 0, 64)
 	for rows.Next() {
@@ -45,11 +48,14 @@ func ListTrackingsByChannelID(ctx context.Context, conn Conn, guildID discord.Gu
 SELECT guild_id, channel_id, address, message_id
 FROM tracking
 WHERE guild_id = ?
-AND channel_id = ?;`, guildID, channelID)
+AND channel_id = ?
+ORDER BY message_id ASC;`, guildID, channelID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get trackings for channel %d: %w", channelID, err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		var tracking model.Tracking

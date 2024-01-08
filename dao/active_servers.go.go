@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func ChangedServers(ctx context.Context, tx *sql.Tx) (map[model.Target]model.ChangedServerStatus, error) {
+func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]model.ChangedServerStatus, err error) {
 	previousServers, err := PrevActiveServers(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -22,7 +23,7 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (map[model.Target]model.Cha
 		return nil, err
 	}
 
-	changedServers := make(map[model.Target]model.ChangedServerStatus, 64)
+	changedServers := make(map[model.MessageTarget]model.ChangedServerStatus, 64)
 
 	// removed servers
 	for target := range previousServers {
@@ -35,7 +36,7 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (map[model.Target]model.Cha
 	}
 
 	// to add
-	added := make(map[model.Target]model.ServerStatus, 64)
+	added := make(map[model.MessageTarget]model.ServerStatus, 64)
 	for target, server := range currentServers {
 		if prev, ok := previousServers[target]; ok {
 			// found in prev -> check if changed
@@ -88,7 +89,7 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (map[model.Target]model.Cha
 	return changedServers, nil
 }
 
-func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.Target]model.ServerStatus, err error) {
+func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.MessageTarget]model.ServerStatus, err error) {
 
 	servers, err = activeServers(ctx, tx)
 	if err != nil {
@@ -109,7 +110,7 @@ func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.Target]mo
 	return servers, nil
 }
 
-func activeServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
+func activeServers(ctx context.Context, conn Conn) (servers map[model.MessageTarget]model.ServerStatus, err error) {
 
 	serverRows, err := conn.QueryContext(ctx, `
 SELECT
@@ -133,16 +134,19 @@ FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_servers ts ON t.address = ts.address
 WHERE c.running = 1
+ORDER BY c.guild_id ASC, c.channel_id ASC
 `)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active servers: %w", err)
 	}
-	defer serverRows.Close()
+	defer func() {
+		err = errors.Join(err, serverRows.Close())
+	}()
 
-	servers = make(map[model.Target]model.ServerStatus)
+	servers = make(map[model.MessageTarget]model.ServerStatus)
 	for serverRows.Next() {
 		var (
-			target    model.Target
+			target    model.MessageTarget
 			server    model.ServerStatus
 			protocols []byte
 			timestamp int64
@@ -182,7 +186,7 @@ WHERE c.running = 1
 	return servers, nil
 }
 
-func activeClients(ctx context.Context, conn Conn) (map[model.Target]model.ClientStatusList, error) {
+func activeClients(ctx context.Context, conn Conn) (_ map[model.MessageTarget]model.ClientStatusList, err error) {
 	rows, err := conn.QueryContext(ctx, `
 SELECT
 	c.guild_id,
@@ -206,16 +210,18 @@ LEFT JOIN flag_mappings fm ON
 		tsc.country_id = fm.flag_id
 	)
 WHERE c.running = 1
-ORDER BY c.guild_id, c.channel_id, t._rowid_, score DESC, tsc.name ASC`)
+ORDER BY c.guild_id ASC, c.channel_id ASC, t._rowid_, score DESC, tsc.name ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query active players: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
-	result := make(map[model.Target]model.ClientStatusList)
+	result := make(map[model.MessageTarget]model.ClientStatusList)
 	for rows.Next() {
 		var (
-			target model.Target
+			target model.MessageTarget
 			client model.ClientStatus
 		)
 		err = rows.Scan(
@@ -266,7 +272,9 @@ ORDER BY address ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query servers: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		var server model.Server
@@ -425,7 +433,9 @@ LIMIT 1;`, address)
 	if err != nil {
 		return false, fmt.Errorf("failed to query server address: %s: %w", address, err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	if !rows.Next() {
 		return false, nil

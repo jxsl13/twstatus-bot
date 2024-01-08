@@ -15,18 +15,20 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		return
 	}
 
-	userTarget := model.UserTarget{
+	userTarget := model.MessageUserTarget{
 		UserID: e.UserID,
-		Target: model.Target{
-			GuildID:   e.GuildID,
-			ChannelID: e.ChannelID,
+		MessageTarget: model.MessageTarget{
+			ChannelTarget: model.ChannelTarget{
+				GuildID:   e.GuildID,
+				ChannelID: e.ChannelID,
+			},
 			MessageID: e.MessageID,
 		},
 	}
 
 	n := model.PlayerCountNotification{
-		UserTarget: userTarget,
-		Threshold:  val,
+		MessageUserTarget: userTarget,
+		Threshold:         val,
 	}
 
 	b.db.Lock()
@@ -50,13 +52,13 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		if errors.Is(err, dao.ErrNotFound) {
 			err = dao.SetPlayerCountNotification(b.ctx, tx, n)
 			if err != nil {
-				log.Printf("failed to set player count notification(%s -> %s): %v", n.Target, n.UserID, err)
+				log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 				return
 			}
-			log.Printf("added %d player count notification for user %s and message %s", n.Threshold, e.UserID, n.Target)
+			log.Printf("added %d player count notification for user %s and message %s", n.Threshold, e.UserID, n.MessageTarget)
 			return
 		} else {
-			log.Printf("failed to get player count notification(%s -> %s): %v", n.Target, n.UserID, err)
+			log.Printf("failed to get player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 			return
 		}
 	}
@@ -79,11 +81,11 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 
 	err = dao.SetPlayerCountNotification(b.ctx, tx, n)
 	if err != nil {
-		log.Printf("failed to set player count notification(%s -> %s): %v", n.Target, n.UserID, err)
+		log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
 	}
 
-	log.Printf("added player count notification for user %s and message %s", e.UserID, n.Target)
+	log.Printf("added player count notification for user %s and message %s", e.UserID, n.MessageTarget)
 }
 
 func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRemoveEvent) {
@@ -92,18 +94,20 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 		return
 	}
 
-	userTarget := model.UserTarget{
+	userTarget := model.MessageUserTarget{
 		UserID: e.UserID,
-		Target: model.Target{
-			GuildID:   e.GuildID,
-			ChannelID: e.ChannelID,
+		MessageTarget: model.MessageTarget{
+			ChannelTarget: model.ChannelTarget{
+				GuildID:   e.GuildID,
+				ChannelID: e.ChannelID,
+			},
 			MessageID: e.MessageID,
 		},
 	}
 
 	n := model.PlayerCountNotification{
-		UserTarget: userTarget,
-		Threshold:  val,
+		MessageUserTarget: userTarget,
+		Threshold:         val,
 	}
 
 	b.db.Lock()
@@ -111,8 +115,8 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 
 	err := dao.RemovePlayerCountNotification(b.ctx, b.db, n)
 	if err != nil {
-		log.Printf("failed to remove player count notification(%s -> %s): %v", n.Target, n.UserID, err)
+		log.Printf("failed to remove player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
 	}
-	log.Printf("removed %d player count notification for user %s and message %s", val, e.UserID, n.Target)
+	log.Printf("removed %d player count notification for user %s and message %s", val, e.UserID, n.MessageTarget)
 }

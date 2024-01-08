@@ -3,13 +3,14 @@ package dao
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func GetChannel(ctx context.Context, conn Conn, guildId discord.GuildID, channelID discord.ChannelID) (model.Channel, error) {
+func GetChannel(ctx context.Context, conn Conn, guildId discord.GuildID, channelID discord.ChannelID) (_ model.Channel, err error) {
 	rows, err := conn.QueryContext(ctx, `
 SELECT running
 FROM channels
@@ -22,7 +23,9 @@ LIMIT 1;`,
 	if err != nil {
 		return model.Channel{}, fmt.Errorf("failed to query channel: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	if !rows.Next() {
 		return model.Channel{}, fmt.Errorf("%w: channel %d", ErrNotFound, channelID)
@@ -57,7 +60,9 @@ ORDER BY channel_id ASC;`,
 	if err != nil {
 		return nil, fmt.Errorf("failed to query channels: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		channel := model.Channel{

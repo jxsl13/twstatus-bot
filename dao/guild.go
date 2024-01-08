@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -16,7 +17,9 @@ func GetGuild(ctx context.Context, conn Conn, guildID discord.GuildID) (guild mo
 	if err != nil {
 		return model.Guild{}, fmt.Errorf("failed to query guild: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	if !rows.Next() {
 		return model.Guild{}, fmt.Errorf("%w: guild %d", ErrNotFound, guildID)
@@ -53,7 +56,9 @@ func ListGuilds(ctx context.Context, conn Conn) (guilds model.Guilds, err error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query guilds: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		var guild model.Guild

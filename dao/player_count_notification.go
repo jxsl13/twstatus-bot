@@ -3,14 +3,21 @@ package dao
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func GetTargetListNotifications(ctx context.Context, tx *sql.Tx, servers map[model.Target]model.ChangedServerStatus) (map[model.Target]model.ChangedServerStatus, error) {
+func GetTargetListNotifications(
+	ctx context.Context,
+	tx *sql.Tx,
+	servers map[model.MessageTarget]model.ChangedServerStatus) (
+	_ map[model.MessageTarget]model.ChangedServerStatus,
+	err error,
+) {
 	stmt, err := tx.PrepareContext(ctx, `
-	SELECT
+SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
@@ -21,7 +28,9 @@ ORDER BY user_id ASC;`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare list notifications statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		err = errors.Join(err, stmt.Close())
+	}()
 
 	for t := range servers {
 		rows, err := stmt.QueryContext(ctx, t.GuildID, t.ChannelID, t.MessageID)
@@ -66,7 +75,9 @@ ORDER BY guild_id ASC, channel_id ASC, message_id ASC, user_id ASC`)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	for rows.Next() {
 		var n model.PlayerCountNotification
@@ -86,7 +97,14 @@ ORDER BY guild_id ASC, channel_id ASC, message_id ASC, user_id ASC`)
 	return notifications, nil
 }
 
-func GetPlayerCountNotification(ctx context.Context, conn Conn, n model.UserTarget) (notification model.PlayerCountNotification, err error) {
+func GetPlayerCountNotification(
+	ctx context.Context,
+	conn Conn,
+	n model.MessageUserTarget,
+) (
+	notification model.PlayerCountNotification,
+	err error,
+) {
 
 	rows, err := conn.QueryContext(ctx, `
 SELECT
@@ -104,7 +122,9 @@ LIMIT 1;`, n.GuildID, n.ChannelID, n.MessageID, n.UserID)
 	if err != nil {
 		return model.PlayerCountNotification{}, err
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
 	if !rows.Next() {
 		return model.PlayerCountNotification{}, fmt.Errorf("no player count notification found for %w", ErrNotFound)
@@ -139,7 +159,9 @@ REPLACE INTO player_count_notifications (
 	if err != nil {
 		return fmt.Errorf("failed to prepare set player notifications statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		err = errors.Join(err, stmt.Close())
+	}()
 
 	for _, n := range notifications {
 		_, err = stmt.ExecContext(ctx,

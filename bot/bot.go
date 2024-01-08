@@ -446,10 +446,10 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 	}
 
 	//msgs := make([]*discord.Message, 0, len(trackings))
-	notifications := make(map[model.UserTarget]model.PlayerCountNotification)
+	notifications := make(map[model.MessageUserTarget]model.PlayerCountNotification)
 
 	for _, t := range trackings {
-		log.Printf("fetching message %s for notification tracking", t.Target)
+		log.Printf("fetching message %s for notification tracking", t.MessageTarget)
 		m, err := b.state.Message(t.ChannelID, t.MessageID)
 		if err != nil {
 			if ErrIsNotFound(err) {
@@ -470,7 +470,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 				// none of the ones that we want to look at
 				continue
 			}
-			log.Printf("fetching users for emoji %s of message %s", emoji, t.Target)
+			log.Printf("fetching users for emoji %s of message %s", emoji, t.MessageTarget)
 			users, err := b.state.Reactions(m.ChannelID, t.MessageID, emoji, 0)
 			if err != nil {
 				if ErrIsNotFound(err) {
@@ -480,11 +480,11 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 			}
 			val := reactionPlayerCountNotificationMap[emoji]
 
-			log.Printf("found %d users for emoji %s of message %s", len(users), emoji, t.Target)
+			log.Printf("found %d users for emoji %s of message %s", len(users), emoji, t.MessageTarget)
 			for _, user := range users {
-				userTarget := model.UserTarget{
-					Target: t.Target,
-					UserID: user.ID,
+				userTarget := model.MessageUserTarget{
+					MessageTarget: t.MessageTarget,
+					UserID:        user.ID,
 				}
 				if n, ok := notifications[userTarget]; ok {
 					// only persist the smallest threshold
@@ -517,8 +517,8 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 					}
 				} else {
 					notifications[userTarget] = model.PlayerCountNotification{
-						UserTarget: userTarget,
-						Threshold:  val,
+						MessageUserTarget: userTarget,
+						Threshold:         val,
 					}
 				}
 			}

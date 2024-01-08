@@ -21,7 +21,7 @@ func (c *ChangedServerStatus) Content() string {
 
 	const limit = 2000
 	sb := strings.Builder{}
-	sb.Grow(2000)
+	sb.Grow(limit)
 	sb.WriteString(header)
 	sb.WriteString("\n")
 

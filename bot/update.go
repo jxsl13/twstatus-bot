@@ -54,7 +54,7 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 	return src, dst, nil
 }
 
-func (b *Bot) changedServers(ctx context.Context) (m map[model.Target]model.ChangedServerStatus, err error) {
+func (b *Bot) changedServers(ctx context.Context) (m map[model.MessageTarget]model.ChangedServerStatus, err error) {
 	b.db.Lock()
 	defer b.db.Unlock()
 
@@ -91,7 +91,7 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 
 	wg.Add(l)
 	for target, server := range servers {
-		go func(target model.Target, status model.ChangedServerStatus) {
+		go func(target model.MessageTarget, status model.ChangedServerStatus) {
 			defer wg.Done()
 			err := b.updateDiscordMessage(target, status)
 			if err != nil {
@@ -105,7 +105,7 @@ func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
 	return l, nil
 }
 
-func (b *Bot) updateDiscordMessage(target model.Target, change model.ChangedServerStatus) error {
+func (b *Bot) updateDiscordMessage(target model.MessageTarget, change model.ChangedServerStatus) error {
 	var (
 		content string
 		embeds  []discord.Embed = []discord.Embed{}

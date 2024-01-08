@@ -135,6 +135,18 @@ CREATE TABLE IF NOT EXISTS player_count_notifications (
 		CHECK( threshold > 0)
 ) STRICT;
 
+CREATE TABLE IF NOT EXISTS prev_message_mentions (
+	guild_id INTEGER
+		REFERENCES guilds(guild_id)
+		ON DELETE CASCADE,
+	channel_id INTEGER
+		REFERENCES channels(channel_id)
+		ON DELETE CASCADE,
+	message_id INTEGER NOT NULL,
+	user_id INTEGER NOT NULL,
+	PRIMARY KEY (guild_id, channel_id, message_id, user_id)
+) STRICT;
+
 CREATE TABLE IF NOT EXISTS active_servers (
 	timestamp INTEGER NOT NULL,
 	address TEXT PRIMARY KEY,

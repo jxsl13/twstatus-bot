@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func PrevActiveServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
+func PrevActiveServers(ctx context.Context, conn Conn) (servers map[model.MessageTarget]model.ServerStatus, err error) {
 	servers, err = prevActiveServers(ctx, conn)
 	if err != nil {
 		return nil, err
@@ -30,7 +31,7 @@ func PrevActiveServers(ctx context.Context, conn Conn) (servers map[model.Target
 	return servers, nil
 }
 
-func prevActiveServers(ctx context.Context, conn Conn) (servers map[model.Target]model.ServerStatus, err error) {
+func prevActiveServers(ctx context.Context, conn Conn) (servers map[model.MessageTarget]model.ServerStatus, err error) {
 	rows, err := conn.QueryContext(ctx, `
 SELECT
 	message_id,
@@ -50,16 +51,18 @@ SELECT
 	max_players,
 	score_kind
 FROM prev_active_servers
-ORDER BY message_id ASC`)
+ORDER BY guild_id ASC, channel_id ASC, message_id ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query previous active servers: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
-	servers = make(map[model.Target]model.ServerStatus, 2048)
+	servers = make(map[model.MessageTarget]model.ServerStatus, 2048)
 	for rows.Next() {
 		var (
-			target    model.Target
+			target    model.MessageTarget
 			server    model.ServerStatus
 			protocols []byte
 			timestamp int64
@@ -101,9 +104,16 @@ ORDER BY message_id ASC`)
 	return servers, nil
 }
 
-func prevActiveClients(ctx context.Context, conn Conn, servers map[model.Target]model.ServerStatus) (map[model.Target]model.ClientStatusList, error) {
+func prevActiveClients(
+	ctx context.Context,
+	conn Conn,
+	servers map[model.MessageTarget]model.ServerStatus,
+) (
+	_ map[model.MessageTarget]model.ClientStatusList,
+	err error,
+) {
 	if len(servers) == 0 {
-		return map[model.Target]model.ClientStatusList{}, nil
+		return map[model.MessageTarget]model.ClientStatusList{}, nil
 	}
 
 	args := make([]any, 0, len(servers))
@@ -134,12 +144,14 @@ ORDER BY id ASC`,
 	if err != nil {
 		return nil, fmt.Errorf("failed to query previous active clients: %w", err)
 	}
-	defer rows.Close()
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
 
-	result := make(map[model.Target]model.ClientStatusList)
+	result := make(map[model.MessageTarget]model.ClientStatusList)
 	for rows.Next() {
 		var (
-			target model.Target
+			target model.MessageTarget
 			client model.ClientStatus
 		)
 		err = rows.Scan(
@@ -167,7 +179,11 @@ ORDER BY id ASC`,
 	return result, nil
 }
 
-func addPrevActiveServers(ctx context.Context, conn Conn, servers map[model.Target]model.ServerStatus) error {
+func addPrevActiveServers(
+	ctx context.Context,
+	conn Conn,
+	servers map[model.MessageTarget]model.ServerStatus,
+) (err error) {
 	stmt, err := conn.PrepareContext(ctx, `
 INSERT INTO prev_active_servers (
 	message_id,
@@ -190,7 +206,9 @@ INSERT INTO prev_active_servers (
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		err = errors.Join(err, stmt.Close())
+	}()
 	for target, server := range servers {
 		_, err = stmt.ExecContext(ctx,
 			target.MessageID,
@@ -218,7 +236,7 @@ INSERT INTO prev_active_servers (
 	return nil
 }
 
-func removePrevActiveServers(ctx context.Context, conn Conn, messageIds []discord.MessageID) error {
+func removePrevActiveServers(ctx context.Context, conn Conn, messageIds []discord.MessageID) (err error) {
 	if len(messageIds) == 0 {
 		return nil
 	}
@@ -228,7 +246,7 @@ func removePrevActiveServers(ctx context.Context, conn Conn, messageIds []discor
 		args = append(args, id)
 	}
 
-	_, err := conn.ExecContext(
+	_, err = conn.ExecContext(
 		ctx,
 		fmt.Sprintf(
 			`DELETE FROM prev_active_servers WHERE message_id IN (%s);`,
@@ -242,7 +260,7 @@ func removePrevActiveServers(ctx context.Context, conn Conn, messageIds []discor
 	return nil
 }
 
-func addPrevActiveClients(ctx context.Context, conn Conn, servers map[model.Target]model.ServerStatus) error {
+func addPrevActiveClients(ctx context.Context, conn Conn, servers map[model.MessageTarget]model.ServerStatus) (err error) {
 	stmt, err := conn.PrepareContext(ctx, `
 INSERT INTO prev_active_server_clients (
 	message_id,
@@ -259,7 +277,9 @@ INSERT INTO prev_active_server_clients (
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() {
+		err = errors.Join(err, stmt.Close())
+	}()
 
 	for target, server := range servers {
 		for _, client := range server.Clients {
@@ -285,7 +305,7 @@ INSERT INTO prev_active_server_clients (
 	return nil
 }
 
-func removePrevActiveClients(ctx context.Context, conn Conn, messageIds []discord.MessageID) error {
+func removePrevActiveClients(ctx context.Context, conn Conn, messageIds []discord.MessageID) (err error) {
 	if len(messageIds) == 0 {
 		return nil
 	}
@@ -295,7 +315,7 @@ func removePrevActiveClients(ctx context.Context, conn Conn, messageIds []discor
 		args = append(args, id)
 	}
 
-	_, err := conn.ExecContext(
+	_, err = conn.ExecContext(
 		ctx,
 		fmt.Sprintf(
 			`DELETE FROM prev_active_server_clients WHERE message_id IN (%s);`,

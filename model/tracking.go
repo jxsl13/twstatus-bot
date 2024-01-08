@@ -11,32 +11,53 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/markdown"
+	"github.com/mattn/go-runewidth"
 )
 
 // Tracking is a struct that represents a tracking message which contains
 // a single server's status.
 type Tracking struct {
-	Target
+	MessageTarget
 	Address string // ipv4:port or [ipv6]:port
 }
 
 type Trackings []Tracking
 
-type ByTargetIDs []Target
+type ByMessageTargetIDs []MessageTarget
 
-func (a ByTargetIDs) Len() int      { return len(a) }
-func (a ByTargetIDs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
-func (a ByTargetIDs) Less(i, j int) bool {
+func (a ByMessageTargetIDs) Len() int      { return len(a) }
+func (a ByMessageTargetIDs) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByMessageTargetIDs) Less(i, j int) bool {
 	return a[i].Less(a[j])
 }
 
-type Target struct {
+type ChannelTarget struct {
 	GuildID   discord.GuildID
 	ChannelID discord.ChannelID
+}
+
+func (a ChannelTarget) Less(other ChannelTarget) bool {
+	aGuildId := a.GuildID
+	bGuildId := other.GuildID
+
+	if aGuildId < bGuildId {
+		return true
+	}
+
+	if aGuildId > bGuildId {
+		return false
+	}
+
+	// guildIds are equal
+	return a.ChannelID < other.ChannelID
+}
+
+type MessageTarget struct {
+	ChannelTarget
 	MessageID discord.MessageID
 }
 
-func (a Target) Less(other Target) bool {
+func (a MessageTarget) Less(other MessageTarget) bool {
 	aGuildId := a.GuildID
 	bGuildId := other.GuildID
 
@@ -64,11 +85,11 @@ func (a Target) Less(other Target) bool {
 	return a.MessageID < other.MessageID
 }
 
-func (t *Target) Equals(other Target) bool {
+func (t *MessageTarget) Equals(other MessageTarget) bool {
 	return t.GuildID == other.GuildID && t.ChannelID == other.ChannelID && t.MessageID == other.MessageID
 }
 
-func (t Target) String() string {
+func (t MessageTarget) String() string {
 	// https://discord.com/channels/628902095747285012/718814596323868766/1190423006590279791
 	return fmt.Sprintf("https://discord.com/channels/%d/%d/%d", t.GuildID, t.ChannelID, t.MessageID)
 }
@@ -163,16 +184,19 @@ func (c ClientStatusList) Equals(other ClientStatusList) bool {
 	return true
 }
 
-func (clients ClientStatusList) LongestNames() (maxNameLen, maxClanLen int) {
+func (clients ClientStatusList) LongestValues() (maxNameLen, maxClanLen int) {
 	longestName := 0
 	longestClan := 0
+	width := 0
 	for _, client := range clients {
-		if len([]rune(client.Name)) > longestName {
-			longestName = len([]rune(client.Name))
+		width = client.NameLen()
+		if width > longestName {
+			longestName = width
 		}
 
-		if len([]rune(client.Clan)) > longestClan {
-			longestName = len([]rune(client.Clan))
+		width = client.ClanLen()
+		if width > longestClan {
+			longestClan = width
 		}
 	}
 	return longestName, longestClan
@@ -193,13 +217,12 @@ func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
 		embed  discord.Embed = discord.Embed{
 			Type: discord.NormalEmbed,
 		}
-		longestName, longestClan = clients.LongestNames()
-		nameFmtStr               = fmt.Sprintf("%%-%ds", longestName)
-		clanFmtStr               = fmt.Sprintf("%%-%ds", longestClan)
+		namePadding, clanPadding = clients.LongestValues()
 		characterCnt             = 0
 	)
+
 	clients.Iterate(scoreKind, func(i int, client ClientStatus) bool {
-		fields, charLen := client.ToEmbedFields(nameFmtStr, clanFmtStr, scoreKind)
+		fields, charLen := client.ToEmbedFields(namePadding, clanPadding, scoreKind)
 
 		if len(embed.Fields)+len(fields) > maxFieldsPerEmbed {
 			embeds = append(embeds, embed)
@@ -266,16 +289,18 @@ func (clients ClientStatusList) Iterate(scoreKind string, f func(idx int, client
 func (clients ClientStatusList) Format(scoreKind string) string {
 	const maxCharacters = 2000 - 128
 
+	if len(clients) == 0 {
+		return ""
+	}
+
 	var (
 		sb                       strings.Builder
-		longestName, longestClan = clients.LongestNames()
-		nameFmtStr               = fmt.Sprintf("%%-%ds", longestName)
-		clanFmtStr               = fmt.Sprintf("%%-%ds", longestClan)
+		namePadding, clanPadding = clients.LongestValues()
 	)
-	sb.Grow((longestName + longestClan + 16) * len(clients))
+	sb.Grow(min((64)*len(clients), maxCharacters))
 
 	clients.Iterate(scoreKind, func(i int, client ClientStatus) bool {
-		line := client.Format(nameFmtStr, clanFmtStr, scoreKind)
+		line := client.Format(namePadding, clanPadding, scoreKind)
 
 		// discord character limit
 		if sb.Len()+len(line) > maxCharacters {
@@ -329,52 +354,45 @@ func (c *ClientStatus) IsBot() bool {
 
 func (cs *ClientStatus) FormatScore(scoreKind string) string {
 	if scoreKind == "time" {
-		if cs.Score == 0 || cs.IsSpectator() { // no times or invalid times
+		if cs.IsSpectator() {
+			return "👁️"
+		} else if cs.Score == 0 { // no times or invalid times
 			return ""
-		} else {
-			return (time.Second * time.Duration(cs.Score)).String()
 		}
-	} else {
-		return strconv.Itoa(cs.Score)
+		return (time.Second * time.Duration(cs.Score)).String()
 	}
+	return strconv.Itoa(cs.Score)
 }
 
-func (cs *ClientStatus) FormatName(nameFormat string) string {
-	return markdown.WrapInInlineCodeBlock(fmt.Sprintf(nameFormat, cs.Name))
+func (cs *ClientStatus) NameLen() int {
+	return runewidth.StringWidth(cs.Name)
 }
 
-func (cs *ClientStatus) FormatClan(clanFormat string) string {
-	return markdown.WrapInInlineCodeBlock(fmt.Sprintf(clanFormat, cs.Clan))
+func (cs *ClientStatus) ClanLen() int {
+	return runewidth.StringWidth(cs.Clan)
 }
 
-func (cs *ClientStatus) Format(nameFormat, clanFormat, scoreKind string) string {
+func (cs *ClientStatus) FormatName(padding int) string {
+	return markdown.WrapInInlineCodeBlock(runewidth.FillRight(cs.Name, padding))
+}
+
+func (cs *ClientStatus) FormatClan(padding int) string {
+	return markdown.WrapInInlineCodeBlock(runewidth.FillRight(cs.Clan, padding))
+}
+
+func (cs *ClientStatus) Format(namePadding, clanPadding int, scoreKind string) string {
 	var (
-		name  = cs.FormatName(nameFormat)
-		clan  = cs.FormatClan(clanFormat)
+		name  = cs.FormatName(namePadding)
+		clan  = cs.FormatClan(clanPadding)
 		score = cs.FormatScore(scoreKind)
 	)
-
-	if score != "" {
-		score = "(" + score + ")"
-	}
-
-	robot := ""
-	if score != "" {
-		robot += " "
-	}
-
-	if cs.IsSpectator() {
-		robot += ":eye:"
-	} else if cs.IsBot() {
-		robot += ":robot:"
-	}
-
-	return fmt.Sprintf("%s %s %s %s%s", cs.FlagEmoji, name, clan, score, robot)
+	// len(flag) == 4
+	return fmt.Sprintf("%s %s %s %s", cs.FlagEmoji, name, clan, score)
 }
 
-func (cs *ClientStatus) ToEmbedFields(nameFormat, clanFormat, scoreKind string) (fields []discord.EmbedField, charLen int) {
+func (cs *ClientStatus) ToEmbedFields(namePadding, clanPadding int, scoreKind string) (fields []discord.EmbedField, charLen int) {
 
-	line := cs.Format(nameFormat, clanFormat, scoreKind)
+	line := cs.Format(namePadding, clanPadding, scoreKind)
 	return []discord.EmbedField{
 		{
 			Value:  line,

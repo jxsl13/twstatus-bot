@@ -72,6 +72,64 @@ type Part struct {
 	Color *int32 `json:"color,omitempty"`
 }
 
+var pointGametypes = []string{
+	"alien",
+	"ball",
+	"bomb",
+	"bunter",
+	"catch",
+	"city",
+	"ctf",
+	"dm",
+	"fng",
+	"foot",
+	"freeze",
+	"inf",
+	"lms",
+	"lts",
+	"monster",
+	"nodes",
+	"rpg",
+	"smash",
+	"tdm",
+	"teemo",
+	"town",
+	"war3",
+	"xpanic",
+	"zomb",
+}
+
+func isPointGameType(gameType string) bool {
+	gameType = strings.ToLower(gameType)
+	for _, gt := range pointGametypes {
+		if strings.Contains(gameType, gt) {
+			return true
+		}
+	}
+	return false
+}
+
+func ScoreKindFromDTO(clientScoreKind *string, gameType string) string {
+	if clientScoreKind == nil {
+		return "points"
+	}
+
+	scoreKind := strings.ToLower(*clientScoreKind)
+	if strings.Contains(scoreKind, "time") {
+		scoreKind = "time"
+		if isPointGameType(gameType) {
+			scoreKind = "points"
+		}
+	} else {
+		if !strings.Contains(scoreKind, "points") {
+			log.Printf("unknown score kind %q", scoreKind)
+		}
+		scoreKind = "points"
+	}
+
+	return scoreKind
+}
+
 // expands the servers.Server DTO into a slice of Server models
 func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 	timestamp := time.Now()
@@ -84,17 +142,7 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 			passworded = 1
 		}
 
-		scoreKind := "points"
-		if info.ClientScoreKind != nil {
-			switch x := strings.ToLower(string(*info.ClientScoreKind)); x {
-			case "points", "time":
-				scoreKind = x
-			default:
-				log.Printf("unknown score kind %q of server(s) %v", x, server.Addresses)
-				scoreKind = "points"
-			}
-		}
-
+		scoreKind := ScoreKindFromDTO((*string)(info.ClientScoreKind), info.GameType)
 		clients := make([]Client, 0, len(info.Clients))
 		for _, client := range info.Clients {
 			clients = append(clients, ClientFromDTO(client))

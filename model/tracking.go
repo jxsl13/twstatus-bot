@@ -353,14 +353,20 @@ func (c *ClientStatus) IsBot() bool {
 }
 
 func (cs *ClientStatus) FormatScore(scoreKind string) string {
+	const spec = "👁️"
 	if scoreKind == "time" {
 		if cs.IsSpectator() {
-			return "👁️"
+			return spec
 		} else if cs.Score == 0 { // no times or invalid times
 			return ""
 		}
 		return (time.Second * time.Duration(cs.Score)).String()
 	}
+
+	if cs.IsSpectator() {
+		return spec
+	}
+
 	return strconv.Itoa(cs.Score)
 }
 

@@ -141,14 +141,32 @@ func (s *ServerStatus) ProtocolsFromJSON(data []byte) error {
 }
 
 func (ss ServerStatus) Header() string {
-	header := fmt.Sprintf("[%s](https://ddnet.org/connect-to/?addr=%s) (%d/%d)",
+
+	ingame, spec := ss.NumPlayers()
+
+	add := ""
+	if spec > 0 {
+		add = "+" + strconv.Itoa(spec)
+	}
+
+	header := fmt.Sprintf("[%s](https://ddnet.org/connect-to/?addr=%s) (%d%s/%d)",
 		ss.Name,
 		ss.Address,
-		len(ss.Clients),
+		ingame,
+		add,
 		ss.MaxPlayers,
 	)
 	header = markdown.WrapInFat(header)
 	return header
+}
+
+func (ss ServerStatus) NumPlayers() (ingame, spectators int) {
+	for i := 0; i < len(ss.Clients); i++ {
+		if !ss.Clients[i].IsSpectator() {
+			ingame++
+		}
+	}
+	return ingame, len(ss.Clients) - ingame
 }
 
 func (ss ServerStatus) ToEmbeds() (embeds []discord.Embed) {

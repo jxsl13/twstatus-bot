@@ -11,6 +11,7 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/markdown"
+	"github.com/jxsl13/twstatus-bot/utils"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -220,11 +221,129 @@ func (clients ClientStatusList) LongestValues() (maxNameLen, maxClanLen int) {
 	return longestName, longestClan
 }
 
+func (clients ClientStatusList) Teams() (sortedKeys []int, teams map[int]ClientStatusList) {
+	teams = make(map[int]ClientStatusList)
+
+	for _, client := range clients {
+		team := 0
+		if client.Team != nil {
+			team = *client.Team
+		} else {
+			if client.IsSpectator() {
+				team = -1
+			} else {
+				team = 0
+			}
+		}
+		teams[team] = append(teams[team], client)
+	}
+
+	return utils.SortedMapKeys(teams), teams
+}
+
+/*
+Red 0xED4245 | rgb(237,66,69)
+Blue 0x3498DB | rgb(52,152,219)
+Green 0x57F287 | rgb(87,242,135)
+Yellow 0xFEE75C | rgb(254,231,92)
+Purple 0x9B59B6 | rgb(155,89,182)
+Fuchsia 0xEB459E | rgb(235,69,158)
+White 0xFFFFFF | rgb(255,255,255)
+Aqua 0x1ABC9C | rgb(26,188,156)
+LuminousVividPink 0xE91E63 | rgb(233,30,99)
+Gold 0xF1C40F | rgb(241,196,15)
+Orange 0xE67E22 | rgb(230,126,34)
+Grey 0x95A5A6 | rgb(149,165,166)
+Navy 0x34495E | rgb(52,73,94)
+DarkAqua 0x11806A | rgb(17,128,106)
+DarkGreen 0x1F8B4C | rgb(31,139,76)
+DarkBlue 0x206694 | rgb(32,102,148)
+DarkPurple 0x71368A | rgb(113,54,138)
+DarkVividPink 0xAD1457 | rgb(173,20,87)
+DarkGold 0xC27C0E | rgb(194,124,14)
+DarkOrange 0xA84300 | rgb(168,67,0)
+DarkRed 0x992D22 | rgb(153,45,34)
+DarkGrey 0x979C9F | rgb(151,156,159)
+DarkerGrey 0x7F8C8D | rgb(127,140,141)
+LightGrey 0xBCC0C0 | rgb(188,192,192)
+DarkNavy 0x2C3E50 | rgb(44,62,80)
+Blurple 0x5865F2 | rgb(88,101,242)
+Greyple 0x99AAb5 | rgb(153,170,181)
+DarkButNotBlack 0x2C2F33 | rgb(44,47,51)
+NotQuiteBlack 0x23272A | rgb(35,39,42)
+*/
+
+var teamColors = []discord.Color{
+	0xED4245, // red
+	0x3498DB, // blue
+	0x57F287, // green
+	0xFEE75C, // yellow
+	0x9B59B6, // purple
+	0xEB459E, // fuchsia
+	0xFFFFFF, // white
+	0x1ABC9C, // aqua
+	0xE91E63, // luminous vivid pink
+	0xF1C40F, // gold
+	0xE67E22, // orange
+	0x95A5A6, // grey
+	0x34495E, // navy
+	0x11806A, // dark aqua
+	0x1F8B4C, // dark green
+	0x206694, // dark blue
+	0x71368A, // dark purple
+	0xAD1457, // dark vivid pink
+	0xC27C0E, // dark gold
+	0xA84300, // dark orange
+	0x992D22, // dark red
+	0x979C9F, // dark grey
+	0x7F8C8D, // darker grey
+	0xBCC0C0, // light grey
+	0x2C3E50, // dark navy
+	0x5865F2, // blurple
+	0x99AAb5, // greyple
+	0x2C2F33, // dark but not black
+	0x23272A, // not quite black
+}
+var maxTeamColors = len(teamColors)
+
 func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
+	namePadding, clanPadding := clients.LongestValues()
+
+	if scoreKind == "time" {
+		return clients.ToEmbedList(0, namePadding, clanPadding, scoreKind)
+	}
+
+	// scoreKind == "points"
+	teamIDs, teams := clients.Teams()
+	spec := make(ClientStatusList, 0, len(teams[-1]))
+
+	if len(teamIDs) > 10 {
+		// at most 10 embeds allowed per message
+		// meaning at most 10 teams
+		teamIDs = teamIDs[:10]
+	}
+
+	embeds := make([]discord.Embed, 0, len(teamIDs))
+	var color discord.Color
+	for _, teamID := range teamIDs {
+		team := teams[teamID]
+		if teamID < 0 {
+			spec = append(spec, team...)
+			continue
+		}
+
+		color = teamColors[teamID%maxTeamColors]
+		embeds = append(embeds, team.ToEmbedList(color, namePadding, clanPadding, scoreKind)...)
+	}
+
+	embeds = append(embeds, spec.ToEmbedList(0, namePadding, clanPadding, scoreKind)...)
+	return embeds
+}
+
+func (clients ClientStatusList) ToEmbedList(color discord.Color, namePadding, clanPadding int, scoreKind string) []discord.Embed {
 	const (
 		maxCharacters     = 6000 - 128
 		maxFieldsPerEmbed = 25
-		maxEmbeds         = 10
 	)
 
 	if len(clients) == 0 {
@@ -235,8 +354,7 @@ func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
 		embed  discord.Embed = discord.Embed{
 			Type: discord.NormalEmbed,
 		}
-		namePadding, clanPadding = clients.LongestValues()
-		characterCnt             = 0
+		characterCnt = 0
 	)
 
 	clients.Iterate(scoreKind, func(i int, client ClientStatus) bool {

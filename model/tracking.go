@@ -352,7 +352,8 @@ func (clients ClientStatusList) ToEmbedList(color discord.Color, namePadding, cl
 	var (
 		embeds               = make([]discord.Embed, 0, len(clients))
 		embed  discord.Embed = discord.Embed{
-			Type: discord.NormalEmbed,
+			Color: color,
+			Type:  discord.NormalEmbed,
 		}
 		characterCnt = 0
 	)
@@ -363,7 +364,8 @@ func (clients ClientStatusList) ToEmbedList(color discord.Color, namePadding, cl
 		if len(embed.Fields)+len(fields) > maxFieldsPerEmbed {
 			embeds = append(embeds, embed)
 			embed = discord.Embed{
-				Type: discord.NormalEmbed,
+				Color: color,
+				Type:  discord.NormalEmbed,
 			}
 		}
 
@@ -478,7 +480,7 @@ func (cs *ClientStatus) Equals(other *ClientStatus) bool {
 
 func (c *ClientStatus) IsSpectator() bool {
 	if c.Team != nil {
-		return *c.Team == -1
+		return *c.Team < 0
 	}
 
 	return !c.IsPlayer && c.Score <= 0

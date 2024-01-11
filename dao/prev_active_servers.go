@@ -131,6 +131,7 @@ SELECT
 	channel_id,
 	name,
 	clan,
+	team,
 	country_id,
 	score,
 	is_player,
@@ -163,6 +164,7 @@ ORDER BY id ASC`,
 
 			&client.Name,
 			&client.Clan,
+			&client.Team,
 			&client.Country,
 			&client.Score,
 			&client.IsPlayer,
@@ -270,12 +272,13 @@ INSERT INTO prev_active_server_clients (
 	channel_id,
 	name,
 	clan,
+	team,
 	country_id,
 	score,
 	is_player,
 	flag_abbr,
 	flag_emoji
-) VALUES (?,?,?,?,?,?,?,?,?,?);`)
+) VALUES (?,?,?,?,?,?,?,?,?,?,?);`)
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
@@ -292,6 +295,7 @@ INSERT INTO prev_active_server_clients (
 
 				client.Name,
 				client.Clan,
+				client.Team,
 				client.Country,
 				client.Score,
 				client.IsPlayer,

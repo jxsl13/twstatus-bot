@@ -225,6 +225,7 @@ CREATE TABLE IF NOT EXISTS prev_active_server_clients (
 		ON DELETE CASCADE,
 	name TEXT NOT NULL,
 	clan TEXT NOT NULL,
+	team INTEGER,
 	country_id INTEGER
 		REFERENCES flags(flag_id),
 	score INTEGER NOT NULL,
@@ -233,7 +234,6 @@ CREATE TABLE IF NOT EXISTS prev_active_server_clients (
 	flag_abbr TEXT NOT NULL,
 	flag_emoji TEXT NOT NULL
 ) STRICT;
-
 `
 	stmt += `
 PRAGMA foreign_key_check; -- validate foreign keys

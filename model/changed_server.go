@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -9,10 +10,15 @@ import (
 type ChangedServerStatus struct {
 	Prev              ServerStatus
 	Curr              ServerStatus
+	Offline           bool
 	UserNotifications []discord.UserID
 }
 
 func (c *ChangedServerStatus) Content() string {
+	if c.Offline {
+		return fmt.Sprintf("%s [OFFLINE]", c.Prev.Name)
+	}
+
 	header := c.Curr.Header()
 
 	if len(c.UserNotifications) == 0 {

@@ -29,8 +29,9 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]
 	for target := range previousServers {
 		if empty, ok := currentServers[target]; !ok {
 			changedServers[target] = model.ChangedServerStatus{
-				Prev: previousServers[target],
-				Curr: empty,
+				Prev:    previousServers[target],
+				Curr:    empty,
+				Offline: true,
 			}
 		}
 	}

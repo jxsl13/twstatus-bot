@@ -235,6 +235,11 @@ CREATE TABLE IF NOT EXISTS prev_active_server_clients (
 	flag_emoji TEXT NOT NULL
 ) STRICT;
 `
+	/*
+		First manual migration:
+		ALTER TABLE prev_active_server_clients ADD COLUMN team INTEGER;
+	*/
+
 	stmt += `
 PRAGMA foreign_key_check; -- validate foreign keys
 `

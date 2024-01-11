@@ -174,30 +174,42 @@ func (s *ServerStatus) ProtocolsFromJSON(data []byte) error {
 	return nil
 }
 
-var emptyServerStatus ServerStatus
+func (ss ServerStatus) NameToQuickJoinUrl() string {
+	return fmt.Sprintf("[%s](https://ddnet.org/connect-to/?addr=%s)", ss.Name, ss.Address)
+}
 
-func (ss ServerStatus) IsDown() bool {
-	return ss.Equals(emptyServerStatus)
+func (s *ServerStatus) HasV6Protocol() bool {
+	for _, protocol := range s.Protocols {
+		if strings.Contains(protocol, "0.6") {
+			return true
+		}
+	}
+	return false
 }
 
 func (ss ServerStatus) Header() string {
-	if ss.IsDown() {
-		return markdown.WrapInFat("Server is down")
+
+	var header string
+	// 0.6.x is required for the ddnet client to join
+	// via the quick join url.
+	if !ss.HasV6Protocol() {
+		header = ss.Name
+	} else {
+		header = ss.NameToQuickJoinUrl()
 	}
+
 	add := ""
 	if ss.NumSpectators > 0 {
 		add = "+" + strconv.Itoa(ss.NumSpectators)
 	}
 
-	header := fmt.Sprintf("[%s](https://ddnet.org/connect-to/?addr=%s) (%d%s/%d)",
-		ss.Name,
-		ss.Address,
+	header = fmt.Sprintf("%s (%d%s/%d)",
+		header,
 		ss.NumPlayers,
 		add,
 		ss.MaxPlayers,
 	)
-	header = markdown.WrapInFat(header)
-	return header
+	return markdown.WrapInFat(header)
 }
 
 func (ss ServerStatus) ToEmbeds() []discord.Embed {
@@ -506,12 +518,20 @@ func (cs *ClientStatus) ClanLen() int {
 	return runewidth.StringWidth(cs.Clan)
 }
 
+func padRight(s string, padding int) string {
+	// handle special case where the content of one of these fields is empty
+	if s == "" {
+		return strings.Repeat(" ", padding)
+	}
+	return runewidth.FillRight(s, padding)
+}
+
 func (cs *ClientStatus) FormatName(padding int) string {
-	return markdown.WrapInInlineCodeBlock(runewidth.FillRight(cs.Name, padding))
+	return markdown.WrapInInlineCodeBlock(padRight(cs.Name, padding))
 }
 
 func (cs *ClientStatus) FormatClan(padding int) string {
-	return markdown.WrapInInlineCodeBlock(runewidth.FillRight(cs.Clan, padding))
+	return markdown.WrapInInlineCodeBlock(padRight(cs.Clan, padding))
 }
 
 func (cs *ClientStatus) Format(namePadding, clanPadding int, scoreKind string) string {

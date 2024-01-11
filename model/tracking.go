@@ -110,6 +110,39 @@ type ServerStatus struct {
 	MaxPlayers   int
 	ScoreKind    string
 	Clients      ClientStatusList
+
+	// not relevant for equality checks
+	// derived meta data
+	Teams         map[int]ClientStatusList
+	LongestName   int
+	LongestClan   int
+	NumPlayers    int // not spectators
+	NumSpectators int
+}
+
+func (ss *ServerStatus) AddClientStatus(client ClientStatus) {
+	ss.Clients = append(ss.Clients, client)
+	if ss.Teams == nil {
+		ss.Teams = make(map[int]ClientStatusList, 2)
+	}
+	teamID := client.TeamID()
+	ss.Teams[teamID] = append(ss.Teams[teamID], client)
+
+	nameLen := client.NameLen()
+	if nameLen > ss.LongestName {
+		ss.LongestName = nameLen
+	}
+
+	clanLen := client.ClanLen()
+	if clanLen > ss.LongestClan {
+		ss.LongestClan = clanLen
+	}
+
+	if !client.IsSpectator() {
+		ss.NumPlayers++
+	} else {
+		ss.NumSpectators++
+	}
 }
 
 func (ss *ServerStatus) Equals(other ServerStatus) bool {
@@ -141,19 +174,25 @@ func (s *ServerStatus) ProtocolsFromJSON(data []byte) error {
 	return nil
 }
 
+var emptyServerStatus ServerStatus
+
+func (ss ServerStatus) IsDown() bool {
+	return ss.Equals(emptyServerStatus)
+}
+
 func (ss ServerStatus) Header() string {
-
-	ingame, spec := ss.NumPlayers()
-
+	if ss.IsDown() {
+		return markdown.WrapInFat("Server is down")
+	}
 	add := ""
-	if spec > 0 {
-		add = "+" + strconv.Itoa(spec)
+	if ss.NumSpectators > 0 {
+		add = "+" + strconv.Itoa(ss.NumSpectators)
 	}
 
 	header := fmt.Sprintf("[%s](https://ddnet.org/connect-to/?addr=%s) (%d%s/%d)",
 		ss.Name,
 		ss.Address,
-		ingame,
+		ss.NumPlayers,
 		add,
 		ss.MaxPlayers,
 	)
@@ -161,18 +200,34 @@ func (ss ServerStatus) Header() string {
 	return header
 }
 
-func (ss ServerStatus) NumPlayers() (ingame, spectators int) {
-	for i := 0; i < len(ss.Clients); i++ {
-		if !ss.Clients[i].IsSpectator() {
-			ingame++
-		}
+func (ss ServerStatus) ToEmbeds() []discord.Embed {
+	if len(ss.Clients) == 0 {
+		return []discord.Embed{}
 	}
-	return ingame, len(ss.Clients) - ingame
-}
 
-func (ss ServerStatus) ToEmbeds() (embeds []discord.Embed) {
-	embeds = ss.Clients.ToEmbeds(ss.ScoreKind)
+	const discordEmbedsLimit = 10
+	if ss.ScoreKind == "time" || len(ss.Teams) > discordEmbedsLimit {
+		return ss.Clients.ToEmbedList(0, ss.LongestName, ss.LongestClan, ss.ScoreKind)
+	}
 
+	// scoreKind == "points"
+	spec := make(ClientStatusList, 0, len(ss.Teams[-1]))
+
+	embeds := make([]discord.Embed, 0, len(ss.Teams))
+	var color discord.Color
+	teamIDs := utils.SortedMapKeys(ss.Teams)
+	for _, teamID := range teamIDs {
+		team := ss.Teams[teamID]
+		if teamID < 0 {
+			spec = append(spec, team...)
+			continue
+		}
+
+		color = teamColors[teamID%maxTeamColors]
+		embeds = append(embeds, team.ToEmbedList(color, ss.LongestName, ss.LongestClan, ss.ScoreKind)...)
+	}
+
+	embeds = append(embeds, spec.ToEmbedList(0, ss.LongestName, ss.LongestClan, ss.ScoreKind)...)
 	return embeds
 }
 
@@ -180,7 +235,7 @@ func (ss ServerStatus) String() string {
 	var sb strings.Builder
 
 	header := ss.Header()
-	clients := ss.Clients.Format(ss.ScoreKind)
+	clients := ss.Clients.Format(ss.LongestName, ss.LongestClan, ss.ScoreKind)
 	sb.WriteString(header)
 	sb.WriteString("\n")
 	sb.WriteString(clients)
@@ -201,44 +256,6 @@ func (c ClientStatusList) Equals(other ClientStatusList) bool {
 		}
 	}
 	return true
-}
-
-func (clients ClientStatusList) LongestValues() (maxNameLen, maxClanLen int) {
-	longestName := 0
-	longestClan := 0
-	width := 0
-	for _, client := range clients {
-		width = client.NameLen()
-		if width > longestName {
-			longestName = width
-		}
-
-		width = client.ClanLen()
-		if width > longestClan {
-			longestClan = width
-		}
-	}
-	return longestName, longestClan
-}
-
-func (clients ClientStatusList) Teams() (sortedKeys []int, teams map[int]ClientStatusList) {
-	teams = make(map[int]ClientStatusList)
-
-	for _, client := range clients {
-		team := 0
-		if client.Team != nil {
-			team = *client.Team
-		} else {
-			if client.IsSpectator() {
-				team = -1
-			} else {
-				team = 0
-			}
-		}
-		teams[team] = append(teams[team], client)
-	}
-
-	return utils.SortedMapKeys(teams), teams
 }
 
 /*
@@ -305,40 +322,6 @@ var teamColors = []discord.Color{
 	0x23272A, // not quite black
 }
 var maxTeamColors = len(teamColors)
-
-func (clients ClientStatusList) ToEmbeds(scoreKind string) []discord.Embed {
-	namePadding, clanPadding := clients.LongestValues()
-
-	if scoreKind == "time" {
-		return clients.ToEmbedList(0, namePadding, clanPadding, scoreKind)
-	}
-
-	// scoreKind == "points"
-	teamIDs, teams := clients.Teams()
-	spec := make(ClientStatusList, 0, len(teams[-1]))
-
-	if len(teamIDs) > 10 {
-		// at most 10 embeds allowed per message
-		// meaning at most 10 teams
-		teamIDs = teamIDs[:10]
-	}
-
-	embeds := make([]discord.Embed, 0, len(teamIDs))
-	var color discord.Color
-	for _, teamID := range teamIDs {
-		team := teams[teamID]
-		if teamID < 0 {
-			spec = append(spec, team...)
-			continue
-		}
-
-		color = teamColors[teamID%maxTeamColors]
-		embeds = append(embeds, team.ToEmbedList(color, namePadding, clanPadding, scoreKind)...)
-	}
-
-	embeds = append(embeds, spec.ToEmbedList(0, namePadding, clanPadding, scoreKind)...)
-	return embeds
-}
 
 func (clients ClientStatusList) ToEmbedList(color discord.Color, namePadding, clanPadding int, scoreKind string) []discord.Embed {
 	const (
@@ -424,17 +407,14 @@ func (clients ClientStatusList) Iterate(scoreKind string, f func(idx int, client
 	}
 }
 
-func (clients ClientStatusList) Format(scoreKind string) string {
+func (clients ClientStatusList) Format(namePadding, clanPadding int, scoreKind string) string {
 	const maxCharacters = 2000 - 128
 
 	if len(clients) == 0 {
 		return ""
 	}
 
-	var (
-		sb                       strings.Builder
-		namePadding, clanPadding = clients.LongestValues()
-	)
+	var sb strings.Builder
 	sb.Grow(min((64)*len(clients), maxCharacters))
 
 	clients.Iterate(scoreKind, func(i int, client ClientStatus) bool {
@@ -478,12 +458,22 @@ func (cs *ClientStatus) Equals(other *ClientStatus) bool {
 		cs.FlagEmoji == other.FlagEmoji
 }
 
+func (c *ClientStatus) TeamID() int {
+	if c.IsSpectator() {
+		return -1
+	}
+	if c.Team != nil {
+		return *c.Team
+	}
+	return 0
+}
+
 func (c *ClientStatus) IsSpectator() bool {
 	if c.Team != nil {
-		return *c.Team < 0
+		return *c.Team < 0 // servers may send weird team ids
 	}
 
-	return !c.IsPlayer && c.Score <= 0
+	return !c.IsPlayer && c.Score < 0
 }
 
 func (c *ClientStatus) IsBot() bool {

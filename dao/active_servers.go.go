@@ -100,10 +100,11 @@ func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.MessageTa
 	if err != nil {
 		return nil, err
 	}
-
 	for target := range servers {
 		server := servers[target]
-		server.Clients = clients[target]
+		for _, client := range clients[target] {
+			server.AddClientStatus(client)
+		}
 		servers[target] = server
 	}
 

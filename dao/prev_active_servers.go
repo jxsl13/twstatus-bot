@@ -24,7 +24,9 @@ func PrevActiveServers(ctx context.Context, conn Conn) (servers map[model.Messag
 
 	for target := range servers {
 		server := servers[target]
-		server.Clients = clients[target]
+		for _, client := range clients[target] {
+			server.AddClientStatus(client)
+		}
 		servers[target] = server
 	}
 

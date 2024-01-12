@@ -113,6 +113,7 @@ type ServerStatus struct {
 
 	// not relevant for equality checks
 	// derived meta data
+	Spectators    ClientStatusList
 	Teams         map[int]ClientStatusList
 	LongestName   int
 	LongestClan   int
@@ -120,13 +121,28 @@ type ServerStatus struct {
 	NumSpectators int
 }
 
+func (ss *ServerStatus) TotalTeams() int {
+	if len(ss.Spectators) > 0 {
+		return len(ss.Teams) + 1
+	}
+	return len(ss.Teams)
+}
+
 func (ss *ServerStatus) AddClientStatus(client ClientStatus) {
 	ss.Clients = append(ss.Clients, client)
+
 	if ss.Teams == nil {
 		ss.Teams = make(map[int]ClientStatusList, 2)
 	}
-	teamID := client.TeamID()
-	ss.Teams[teamID] = append(ss.Teams[teamID], client)
+
+	if client.IsSpectator() {
+		ss.Spectators = append(ss.Spectators, client)
+		ss.NumSpectators++
+	} else {
+		teamID := client.TeamID()
+		ss.Teams[teamID] = append(ss.Teams[teamID], client)
+		ss.NumPlayers++
+	}
 
 	nameLen := client.NameLen()
 	if nameLen > ss.LongestName {
@@ -136,12 +152,6 @@ func (ss *ServerStatus) AddClientStatus(client ClientStatus) {
 	clanLen := client.ClanLen()
 	if clanLen > ss.LongestClan {
 		ss.LongestClan = clanLen
-	}
-
-	if !client.IsSpectator() {
-		ss.NumPlayers++
-	} else {
-		ss.NumSpectators++
 	}
 }
 
@@ -218,28 +228,26 @@ func (ss ServerStatus) ToEmbeds() []discord.Embed {
 	}
 
 	const discordEmbedsLimit = 10
-	if ss.ScoreKind == "time" || len(ss.Teams) > discordEmbedsLimit {
+	totalTeams := ss.TotalTeams()
+	if ss.ScoreKind == "time" || totalTeams > discordEmbedsLimit || (len(ss.Spectators) == 0 && len(ss.Teams) == 1) {
 		return ss.Clients.ToEmbedList(0, ss.LongestName, ss.LongestClan, ss.ScoreKind)
 	}
 
 	// scoreKind == "points"
-	spec := make(ClientStatusList, 0, len(ss.Teams[-1]))
-
-	embeds := make([]discord.Embed, 0, len(ss.Teams))
-	var color discord.Color
-	teamIDs := utils.SortedMapKeys(ss.Teams)
+	embeds := make([]discord.Embed, 0, totalTeams)
+	var (
+		teamIDs = utils.SortedMapKeys(ss.Teams)
+		color   discord.Color
+		team    ClientStatusList
+	)
 	for _, teamID := range teamIDs {
-		team := ss.Teams[teamID]
-		if teamID < 0 {
-			spec = append(spec, team...)
-			continue
-		}
-
+		team = ss.Teams[teamID]
 		color = teamColors[teamID%maxTeamColors]
+
 		embeds = append(embeds, team.ToEmbedList(color, ss.LongestName, ss.LongestClan, ss.ScoreKind)...)
 	}
 
-	embeds = append(embeds, spec.ToEmbedList(0, ss.LongestName, ss.LongestClan, ss.ScoreKind)...)
+	embeds = append(embeds, ss.Spectators.ToEmbedList(0, ss.LongestName, ss.LongestClan, ss.ScoreKind)...)
 	return embeds
 }
 
@@ -460,14 +468,23 @@ type ClientStatus struct {
 }
 
 func (cs *ClientStatus) Equals(other *ClientStatus) bool {
-	return cs.Score == other.Score &&
-		cs.IsPlayer == other.IsPlayer &&
-		equalPtrType(cs.Team, other.Team) &&
-		cs.Name == other.Name &&
-		cs.Clan == other.Clan &&
-		cs.Country == other.Country &&
-		cs.FlagAbbr == other.FlagAbbr &&
-		cs.FlagEmoji == other.FlagEmoji
+	equalScore := cs.Score == other.Score
+	equalPlayer := cs.IsPlayer == other.IsPlayer
+	equalTeam := equalPtrType(cs.Team, other.Team)
+	equalName := cs.Name == other.Name
+	equalClan := cs.Clan == other.Clan
+	equalCountry := cs.Country == other.Country
+	equalFlagAbbr := cs.FlagAbbr == other.FlagAbbr
+	equalFlagEmoji := cs.FlagEmoji == other.FlagEmoji
+	return equalScore &&
+		equalPlayer &&
+		equalTeam &&
+		equalName &&
+		equalClan &&
+		equalCountry &&
+		equalFlagAbbr &&
+		equalFlagEmoji
+
 }
 
 func (c *ClientStatus) TeamID() int {

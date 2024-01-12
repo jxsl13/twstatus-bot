@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"runtime"
 	"sort"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/jxsl13/twstatus-bot/db"
 	"github.com/jxsl13/twstatus-bot/model"
 	"github.com/jxsl13/twstatus-bot/utils"
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
 const (
@@ -274,12 +276,15 @@ var userCommandList = []api.CreateCommandData{
 }
 
 type Bot struct {
-	ctx         context.Context
-	state       *state.State
-	db          *db.DB
-	superAdmins []discord.UserID
-	useEmbeds   bool
-	userId      discord.UserID
+	ctx             context.Context
+	state           *state.State
+	db              *db.DB
+	superAdmins     []discord.UserID
+	useEmbeds       bool
+	userId          discord.UserID
+	c               chan model.ChangedServerStatus
+	pollingInterval time.Duration
+	conflictMap     *xsync.MapOf[model.MessageTarget, Backoff]
 }
 
 // New requires a discord bot token and returns a Bot instance.
@@ -293,6 +298,7 @@ func New(
 	pollingInterval time.Duration,
 	legacyMessageFormat bool,
 ) (*Bot, error) {
+
 	s := state.New("Bot " + token)
 	app, err := s.CurrentApplication()
 	if err != nil {
@@ -300,11 +306,14 @@ func New(
 	}
 
 	bot := &Bot{
-		ctx:         ctx,
-		state:       s,
-		db:          db,
-		superAdmins: superAdmins,
-		useEmbeds:   !legacyMessageFormat,
+		ctx:             ctx,
+		state:           s,
+		db:              db,
+		superAdmins:     superAdmins,
+		useEmbeds:       !legacyMessageFormat,
+		c:               make(chan model.ChangedServerStatus, 1024),
+		conflictMap:     xsync.NewMapOf[model.MessageTarget, Backoff](),
+		pollingInterval: pollingInterval,
 	}
 
 	s.AddIntents(
@@ -319,7 +328,7 @@ func New(
 		bot.userId = me.ID
 
 		log.Println("connected to the gateway as", me.Tag())
-		src, dst, err := bot.updateServers(ctx)
+		src, dst, err := bot.updateServers()
 		if err != nil {
 			log.Printf("failed to initialize server list: %v", err)
 		} else {
@@ -333,7 +342,11 @@ func New(
 		}
 
 		// start polling
-		go bot.async(pollingInterval)
+		go bot.cacheCleanup()
+		go bot.serverUpdater(pollingInterval)
+		for i := 0; i < max(runtime.NumCPU(), 2); i++ {
+			go bot.messageUpdater(i + 1)
+		}
 	})
 
 	// requires guild message intents
@@ -350,7 +363,6 @@ func New(
 	r.AddFunc("add-guild", bot.addGuildCommand)
 	r.AddFunc("remove-guild", bot.removeGuildCommand)
 	r.AddFunc("update-servers", bot.updateServerListCommand)
-	r.AddFunc("update-messages", bot.updateDiscordMessagesCommand)
 
 	// user commands
 	r.AddFunc("help", bot.help)

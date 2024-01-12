@@ -8,6 +8,8 @@ import (
 )
 
 type ChangedServerStatus struct {
+	Target MessageTarget
+
 	Prev              ServerStatus
 	Curr              ServerStatus
 	Offline           bool

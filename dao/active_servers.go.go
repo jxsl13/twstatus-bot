@@ -29,6 +29,7 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]
 	for target := range previousServers {
 		if empty, ok := currentServers[target]; !ok {
 			changedServers[target] = model.ChangedServerStatus{
+				Target:  target,
 				Prev:    previousServers[target],
 				Curr:    empty,
 				Offline: true,
@@ -43,16 +44,18 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]
 			// found in prev -> check if changed
 			if !server.Equals(prev) {
 				changedServers[target] = model.ChangedServerStatus{
-					Prev: prev,
-					Curr: server,
+					Target: target,
+					Prev:   prev,
+					Curr:   server,
 				}
 				added[target] = server
 			}
 		} else {
 			// not found in prev -> new server
 			changedServers[target] = model.ChangedServerStatus{
-				Prev: model.ServerStatus{},
-				Curr: server,
+				Target: target,
+				Prev:   model.ServerStatus{},
+				Curr:   server,
 			}
 			added[target] = server
 		}

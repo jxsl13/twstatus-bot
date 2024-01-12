@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -19,7 +18,7 @@ import (
 	"github.com/jxsl13/twstatus-bot/servers"
 )
 
-func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
+func (b *Bot) updateServers() (src, dst int, err error) {
 	start := time.Now()
 	servers, err := servers.GetAllServers()
 	if err != nil {
@@ -34,7 +33,7 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 	b.db.Lock()
 	defer b.db.Unlock()
 
-	tx, closer, err := b.Tx(ctx)
+	tx, closer, err := b.Tx(b.ctx)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -42,7 +41,7 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 		err = closer(err)
 	}()
 
-	err = dao.SetServers(ctx, tx, serverList)
+	err = dao.SetServers(b.ctx, tx, serverList)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -54,63 +53,53 @@ func (b *Bot) updateServers(ctx context.Context) (src, dst int, err error) {
 	return src, dst, nil
 }
 
-func (b *Bot) changedServers(ctx context.Context) (m map[model.MessageTarget]model.ChangedServerStatus, err error) {
-	b.db.Lock()
-	defer b.db.Unlock()
+func (b *Bot) changedServers() error {
+	var producer chan<- model.ChangedServerStatus = b.c
 
-	tx, closer, err := b.Tx(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = closer(err)
+	servers, err := func() (map[model.MessageTarget]model.ChangedServerStatus, error) {
+		b.db.Lock()
+		defer b.db.Unlock()
+
+		tx, closer, err := b.Tx(b.ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			err = closer(err)
+		}()
+
+		return dao.ChangedServers(b.ctx, tx)
 	}()
-
-	servers, err := dao.ChangedServers(ctx, tx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return servers, nil
+	log.Printf("%d server messages require an update", len(servers))
+	for _, server := range servers {
+		select {
+		case producer <- server:
+			continue
+		case <-b.ctx.Done():
+			return b.ctx.Err()
+		}
+	}
+	return nil
 }
 
-func (b *Bot) updateDiscordMessages(ctx context.Context) (int, error) {
-	servers, err := b.changedServers(ctx)
-	if err != nil {
-		return 0, err
-	}
-	l := len(servers)
-
-	log.Printf("%d messages need to be changed", l)
-	if l == 0 {
-		return 0, nil
-	}
-
-	start := time.Now()
-	var wg sync.WaitGroup
-
-	wg.Add(l)
-	for target, server := range servers {
-		go func(target model.MessageTarget, status model.ChangedServerStatus) {
-			defer wg.Done()
-			err := b.updateDiscordMessage(target, status)
-			if err != nil {
-				log.Printf("failed to update discord message for %v: %v", target, err)
-			}
-		}(target, server)
-	}
-	wg.Wait()
-
-	log.Printf("updated %d discord messages in %s", l, time.Since(start))
-	return l, nil
-}
-
-func (b *Bot) updateDiscordMessage(target model.MessageTarget, change model.ChangedServerStatus) error {
+func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) error {
 	var (
 		content string
 		embeds  []discord.Embed = []discord.Embed{}
 		status                  = change.Curr
+		target                  = change.Target
 	)
+	waitUntil, found := b.conflictMap.Load(target)
+	expired := !found || waitUntil.Until.After(time.Now())
+
+	if !expired {
+		log.Printf("skipping update of %s, because it was updated recently", target)
+		return nil
+	}
 
 	if b.useEmbeds {
 		// new message format
@@ -132,6 +121,10 @@ func (b *Bot) updateDiscordMessage(target model.MessageTarget, change model.Chan
 		data,
 	)
 	if err == nil {
+		// delete in case everything is fine and a backoff was found
+		if found {
+			b.conflictMap.Delete(target)
+		}
 		return nil
 	}
 
@@ -142,14 +135,37 @@ func (b *Bot) updateDiscordMessage(target model.MessageTarget, change model.Chan
 
 	editingTooFrequently := herr.Status == http.StatusTooManyRequests && herr.Code == 30046
 	if editingTooFrequently {
-		// try again later
-		log.Printf("failed to update discord message for %s: %v", target, err)
-		return nil
+		b.conflictMap.Compute(target, func(backoff Backoff, loaded bool) (newValue Backoff, delete bool) {
+			// not found
+			now := time.Now()
+			if !loaded {
+				// initialize
+				return Backoff{
+					Backoff: b.pollingInterval,
+					Until:   now.Add(b.pollingInterval),
+				}, false
+			}
+
+			// already exists, increase backoff
+			newBackoff := backoff.Backoff * 2
+			return Backoff{
+				Backoff: newBackoff,
+				Until:   now.Add(newBackoff),
+			}, false
+		})
+
+		return herr
 	}
 
 	isNotFound := herr.Status == http.StatusNotFound
 	if !isNotFound {
+		// is NOT a 404, unknown error
 		return herr
+	}
+
+	// message will be deleted from db, also remove from cache
+	if found {
+		b.conflictMap.Delete(target)
 	}
 
 	// message was somehow deleted without us noticing
@@ -172,32 +188,13 @@ func (b *Bot) updateServerListCommand(ctx context.Context, data cmdroute.Command
 	}
 
 	start := time.Now()
-	src, dst, err := b.updateServers(ctx)
+	src, dst, err := b.updateServers()
 	if err != nil {
 		return errorResponse(err)
 	}
 	dur := time.Since(start)
 
 	msg := fmt.Sprintf("Updated %d source to %d target servers in %s", src, dst, dur)
-	return &api.InteractionResponseData{
-		Content: option.NewNullableString(msg),
-		Flags:   discord.EphemeralMessage,
-	}
-}
-
-func (b *Bot) updateDiscordMessagesCommand(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	if !b.IsSuperAdmin(data.Event.SenderID()) {
-		return ErrAccessForbidden()
-	}
-
-	start := time.Now()
-	numMsgs, err := b.updateDiscordMessages(ctx)
-	if err != nil {
-		return errorResponse(err)
-	}
-	dur := time.Since(start)
-
-	msg := fmt.Sprintf("Updated %d discord server status messages in %s", numMsgs, dur)
 	return &api.InteractionResponseData{
 		Content: option.NewNullableString(msg),
 		Flags:   discord.EphemeralMessage,

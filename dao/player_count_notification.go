@@ -9,6 +9,41 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
+func ListAllPlayerCountNotifications(ctx context.Context, conn Conn) (notifications []model.PlayerCountNotification, err error) {
+	rows, err := conn.QueryContext(ctx, `
+SELECT
+	guild_id,
+	channel_id,
+	message_id,
+	user_id,
+	threshold
+FROM player_count_notifications
+ORDER BY guild_id ASC, channel_id ASC, message_id ASC, user_id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = errors.Join(err, rows.Close())
+	}()
+
+	for rows.Next() {
+		var n model.PlayerCountNotification
+		err = rows.Scan(
+			&n.GuildID,
+			&n.ChannelID,
+			&n.MessageID,
+			&n.UserID,
+			&n.Threshold,
+		)
+		if err != nil {
+			return nil, err
+		}
+		notifications = append(notifications, n)
+	}
+
+	return notifications, nil
+}
+
 func GetTargetListNotifications(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -60,41 +95,6 @@ ORDER BY user_id ASC;`)
 	}
 
 	return servers, nil
-}
-
-func ListAllPlayerCountNotifications(ctx context.Context, conn Conn) (notifications []model.PlayerCountNotification, err error) {
-	rows, err := conn.QueryContext(ctx, `
-SELECT
-	guild_id,
-	channel_id,
-	message_id,
-	user_id,
-	threshold
-FROM player_count_notifications
-ORDER BY guild_id ASC, channel_id ASC, message_id ASC, user_id ASC`)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err = errors.Join(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		var n model.PlayerCountNotification
-		err = rows.Scan(
-			&n.GuildID,
-			&n.ChannelID,
-			&n.MessageID,
-			&n.UserID,
-			&n.Threshold,
-		)
-		if err != nil {
-			return nil, err
-		}
-		notifications = append(notifications, n)
-	}
-
-	return notifications, nil
 }
 
 func GetPlayerCountNotification(

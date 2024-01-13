@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS tracking (
 		REFERENCES channels(channel_id)
 		ON DELETE CASCADE,
 	address TEXT NOT NULL,
-	CONSTRAINT tracking_unique_address UNIQUE (guild_id, channel_id, address)
+	CONSTRAINT tracking_unique_address UNIQUE (guild_id, channel_id, address),
 	CONSTRAINT tracking_unique_message_id UNIQUE (guild_id, channel_id, message_id)
 ) STRICT;
 

@@ -101,20 +101,20 @@ type ServerStatus struct {
 	Protocols    []string
 	Name         string
 	Gametype     string
-	Passworded   int
+	Passworded   int64
 	Map          string
 	MapSha256Sum *string
-	MapSize      *int
+	MapSize      *int64
 	Version      string
-	MaxClients   int
-	MaxPlayers   int
+	MaxClients   int64
+	MaxPlayers   int64
 	ScoreKind    string
 	Clients      ClientStatusList
 
 	// not relevant for equality checks
 	// derived meta data
 	Spectators    ClientStatusList
-	Teams         map[int]ClientStatusList
+	Teams         map[int64]ClientStatusList
 	LongestName   int
 	LongestClan   int
 	NumPlayers    int // not spectators
@@ -132,7 +132,7 @@ func (ss *ServerStatus) AddClientStatus(client ClientStatus) {
 	ss.Clients = append(ss.Clients, client)
 
 	if ss.Teams == nil {
-		ss.Teams = make(map[int]ClientStatusList, 2)
+		ss.Teams = make(map[int64]ClientStatusList, 2)
 	}
 
 	if client.IsSpectator() {
@@ -242,7 +242,7 @@ func (ss ServerStatus) ToEmbeds() []discord.Embed {
 	)
 	for _, teamID := range teamIDs {
 		team = ss.Teams[teamID]
-		color = teamColors[teamID%maxTeamColors]
+		color = teamColors[int(teamID)%maxTeamColors]
 
 		embeds = append(embeds, team.ToEmbedList(color, ss.LongestName, ss.LongestClan, ss.ScoreKind)...)
 	}
@@ -459,12 +459,19 @@ func (clients ClientStatusList) Format(namePadding, clanPadding int, scoreKind s
 type ClientStatus struct {
 	Name      string
 	Clan      string
-	Country   int
-	Score     int
+	Country   int64
+	Score     int64
 	IsPlayer  bool
-	Team      *int
+	Team      *int64
 	FlagAbbr  string
 	FlagEmoji string // mapped emoji
+}
+
+func (cs *ClientStatus) IsPlayerInt64() int64 {
+	if cs.IsPlayer {
+		return 1
+	}
+	return 0
 }
 
 func (cs *ClientStatus) Equals(other *ClientStatus) bool {
@@ -487,7 +494,7 @@ func (cs *ClientStatus) Equals(other *ClientStatus) bool {
 
 }
 
-func (c *ClientStatus) TeamID() int {
+func (c *ClientStatus) TeamID() int64 {
 	if c.IsSpectator() {
 		return -1
 	}
@@ -524,7 +531,7 @@ func (cs *ClientStatus) FormatScore(scoreKind string) string {
 		return spec
 	}
 
-	return strconv.Itoa(cs.Score)
+	return strconv.FormatInt(cs.Score, 10)
 }
 
 func (cs *ClientStatus) NameLen() int {

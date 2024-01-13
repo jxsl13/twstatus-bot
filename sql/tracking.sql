@@ -1,6 +1,6 @@
 
 
--- name: ListGuildTrackings :many
+-- name: ListAllTrackings :many
 SELECT guild_id, channel_id, address, message_id
 FROM tracking
 ORDER BY guild_id ASC, channel_id ASC, message_id ASC;

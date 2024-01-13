@@ -17,7 +17,7 @@ REPLACE INTO flag_mappings (
     flag_id, emoji
 ) VALUES (?, ?, ?, ?);
 
--- name: GetFlagMapping :one
+-- name: GetFlagMapping :many
 SELECT
 	m.flag_id,
 	m.emoji,

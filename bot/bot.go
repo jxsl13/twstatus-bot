@@ -19,6 +19,7 @@ import (
 	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/db"
 	"github.com/jxsl13/twstatus-bot/model"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 	"github.com/jxsl13/twstatus-bot/utils"
 	"github.com/puzpuzpuz/xsync/v3"
 )
@@ -279,6 +280,7 @@ type Bot struct {
 	ctx             context.Context
 	state           *state.State
 	db              *db.DB
+	queries         *sqlc.Queries
 	superAdmins     []discord.UserID
 	useEmbeds       bool
 	userId          discord.UserID
@@ -309,6 +311,7 @@ func New(
 		ctx:             ctx,
 		state:           s,
 		db:              db,
+		queries:         sqlc.New(db.DB),
 		superAdmins:     superAdmins,
 		useEmbeds:       !legacyMessageFormat,
 		c:               make(chan model.ChangedServerStatus, 1024),
@@ -398,7 +401,10 @@ func (b *Bot) Connect(ctx context.Context) error {
 }
 
 func (b *Bot) Close() error {
-	return b.state.Close()
+	return errors.Join(
+		b.queries.Close(),
+		b.state.Close(),
+	)
 }
 
 func (b *Bot) IsSuperAdmin(userID discord.UserID) bool {
@@ -447,12 +453,14 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 		err = closer(err)
 	}()
 
-	err = dao.RemovePlayerCountNotifications(ctx, tx)
+	queries := b.queries.WithTx(tx)
+
+	err = dao.RemovePlayerCountNotifications(ctx, queries)
 	if err != nil {
 		return err
 	}
 
-	trackings, err := dao.ListAllTrackings(ctx, tx)
+	trackings, err := dao.ListAllTrackings(ctx, queries)
 	if err != nil {
 		return err
 	}
@@ -540,7 +548,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 	values := utils.Values(notifications)
 	sort.Sort(model.ByPlayerCountNotificationIDs(values))
 
-	err = dao.SetPlayerCountNotifications(ctx, tx, values)
+	err = dao.SetPlayerCountNotifications(ctx, queries, values)
 	if err != nil {
 		return err
 	}

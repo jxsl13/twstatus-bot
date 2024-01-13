@@ -45,7 +45,7 @@ DELETE FROM prev_active_servers
 WHERE message_id = ?;
 
 
--- name: GetPrevActiveServerClients :one
+-- name: GetPrevActiveServerClients :many
 SELECT
 	message_id,
 	guild_id,

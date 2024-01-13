@@ -7,13 +7,13 @@ SELECT flag_id, abbr, emoji FROM flags ORDER BY abbr ASC;
 REPLACE INTO flags (flag_id, abbr, emoji)
 VALUES (?, ?, ?);
 
--- name: GetFlag :one
+-- name: GetFlag :many
 SELECT flag_id, abbr, emoji
 FROM flags
 WHERE flag_id = ?
 LIMIT 1;
 
--- name: GetFlagByAbbr :one
+-- name: GetFlagByAbbr :many
 SELECT flag_id, abbr, emoji
 FROM flags
 WHERE abbr = ?

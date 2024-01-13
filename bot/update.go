@@ -41,7 +41,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 		err = closer(err)
 	}()
 
-	err = dao.SetServers(b.ctx, tx, serverList)
+	err = dao.SetServers(b.ctx, b.queries.WithTx(tx), serverList)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -68,7 +68,7 @@ func (b *Bot) changedServers() error {
 			err = closer(err)
 		}()
 
-		return dao.ChangedServers(b.ctx, tx)
+		return dao.ChangedServers(b.ctx, b.queries.WithTx(tx))
 	}()
 	if err != nil {
 		return err

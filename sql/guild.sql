@@ -12,7 +12,7 @@ INSERT INTO guilds (
 ) VALUES (?, ?);
 
 
--- name: GetGuild :one
+-- name: GetGuild :many
 SELECT guild_id, description
 FROM guilds
 WHERE guild_id = ?

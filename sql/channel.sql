@@ -1,5 +1,5 @@
 
--- name: GetChannel :one
+-- name: GetChannel :many
 SELECT running
 FROM channels
 WHERE guild_id = ?

@@ -21,6 +21,9 @@ type Config struct {
 	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Bot Owner Guild ID"`
 	GuildID       discord.GuildID
 
+	ChannelIDString string `koanf:"discord.channel.id" short:"i" description:"Discord Bot Owner ChannelID for logs"`
+	ChannelID       discord.ChannelID
+
 	PollInterval        time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`
 	LegacyMessageFormat bool          `koanf:"legacy.format" short:"l" description:"Use legacy message format. If disabled, rich text embeddings will be used."`
 }
@@ -35,6 +38,12 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid guild id: %s: %w", c.GuildID, err)
 	}
 	c.GuildID = discord.GuildID(snowflake)
+
+	snowflake, err = discord.ParseSnowflake(c.ChannelIDString)
+	if err != nil {
+		return fmt.Errorf("invalid channel id: %s: %w", c.GuildID, err)
+	}
+	c.ChannelID = discord.ChannelID(snowflake)
 
 	if c.DiscordSuperAdmins == "" {
 		return errors.New("discord super admins is required")

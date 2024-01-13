@@ -17,13 +17,13 @@ type Server struct {
 	Protocols    []string
 	Name         string
 	Gametype     string
-	Passworded   int
+	Passworded   int64
 	Map          string
 	MapSha256Sum *string
-	MapSize      *int
+	MapSize      *int64
 	Version      string
-	MaxClients   int
-	MaxPlayers   int
+	MaxClients   int64
+	MaxPlayers   int64
 	ScoreKind    string
 	Clients      []Client // serialized as json into database
 }
@@ -40,12 +40,19 @@ func (s *Server) ProtocolsFromJSON(data []byte) error {
 type Client struct {
 	Name     string `json:"name"`
 	Clan     string `json:"clan"`
-	Country  int    `json:"country"`
-	Score    int    `json:"score"`
+	Country  int64  `json:"country"`
+	Score    int64  `json:"score"`
 	IsPlayer bool   `json:"is_player"`
 	Skin     *Skin  `json:"skin,omitempty"`
 	Afk      *bool  `json:"afk,omitempty"`
-	Team     *int   `json:"team,omitempty"`
+	Team     *int64 `json:"team,omitempty"`
+}
+
+func (c *Client) IsPlayerInt64() int64 {
+	if c.IsPlayer {
+		return 1
+	}
+	return 0
 }
 
 func (c *Client) IsConnecting() bool {
@@ -137,10 +144,6 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 
 	for _, server := range servers {
 		info := server.Info
-		passworded := 0
-		if info.Passworded {
-			passworded = 1
-		}
 
 		scoreKind := ScoreKindFromDTO((*string)(info.ClientScoreKind), info.GameType)
 		clients := make([]Client, 0, len(info.Clients))
@@ -169,13 +172,13 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 				Protocols:    protocols,
 				Name:         info.Name,
 				Gametype:     info.GameType,
-				Passworded:   passworded,
+				Passworded:   info.PasswordedInt64(),
 				Map:          info.Map.Name,
 				MapSha256Sum: info.Map.Sha256,
 				MapSize:      info.Map.Size,
 				Version:      info.Version,
-				MaxClients:   int(info.MaxClients),
-				MaxPlayers:   int(info.MaxPlayers),
+				MaxClients:   info.MaxClients,
+				MaxPlayers:   info.MaxPlayers,
 				ScoreKind:    scoreKind,
 				Clients:      clients,
 			}

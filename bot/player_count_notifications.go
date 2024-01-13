@@ -45,12 +45,13 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 			log.Printf("failed to close transaction: %v", err)
 		}
 	}()
+	queries := b.queries.WithTx(tx)
 
-	pcn, err := dao.GetPlayerCountNotification(b.ctx, tx, userTarget)
+	pcn, err := dao.GetPlayerCountNotification(b.ctx, queries, userTarget)
 	if err != nil {
 		// not found, just insert
 		if errors.Is(err, dao.ErrNotFound) {
-			err = dao.SetPlayerCountNotification(b.ctx, tx, n)
+			err = dao.SetPlayerCountNotification(b.ctx, queries, n)
 			if err != nil {
 				log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 				return
@@ -79,7 +80,7 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		return
 	}
 
-	err = dao.SetPlayerCountNotification(b.ctx, tx, n)
+	err = dao.SetPlayerCountNotification(b.ctx, queries, n)
 	if err != nil {
 		log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
@@ -113,7 +114,7 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 	b.db.Lock()
 	defer b.db.Unlock()
 
-	err := dao.RemovePlayerCountNotification(b.ctx, b.db, n)
+	err := dao.RemovePlayerCountNotification(b.ctx, b.queries, n)
 	if err != nil {
 		log.Printf("failed to remove player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return

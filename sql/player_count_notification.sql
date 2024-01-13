@@ -26,7 +26,7 @@ AND message_id = ?
 ORDER BY user_id ASC;
 
 
--- name: GetPlayerCountNotification :one
+-- name: GetPlayerCountNotification :many
 SELECT
 	guild_id,
 	channel_id,

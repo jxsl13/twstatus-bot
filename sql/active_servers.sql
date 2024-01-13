@@ -91,7 +91,7 @@ INSERT INTO active_server_clients (
 ) VALUES (?,?,?,?,?,?,?);
 
 
--- name: ExistsServer :one
+-- name: ExistsServer :many
 SELECT
 	address
 FROM active_servers

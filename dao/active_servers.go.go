@@ -2,22 +2,20 @@ package dao
 
 import (
 	"context"
-	"database/sql"
-	"errors"
-	"fmt"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]model.ChangedServerStatus, err error) {
-	previousServers, err := PrevActiveServers(ctx, tx)
+func ChangedServers(ctx context.Context, q *sqlc.Queries) (_ map[model.MessageTarget]model.ChangedServerStatus, err error) {
+	previousServers, err := PrevActiveServers(ctx, q)
 	if err != nil {
 		return nil, err
 	}
 
-	currentServers, err := ActiveServers(ctx, tx)
+	currentServers, err := ActiveServers(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -64,27 +62,27 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]
 	for target := range changedServers {
 		messageIDs = append(messageIDs, target.MessageID)
 	}
-	err = removePrevActiveServers(ctx, tx, messageIDs)
+	err = removePrevActiveServers(ctx, q, messageIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	err = removePrevActiveClients(ctx, tx, messageIDs)
+	err = removePrevActiveClients(ctx, q, messageIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	err = addPrevActiveServers(ctx, tx, added)
+	err = addPrevActiveServers(ctx, q, added)
 	if err != nil {
 		return nil, err
 	}
 
-	err = addPrevActiveClients(ctx, tx, added)
+	err = addPrevActiveClients(ctx, q, added)
 	if err != nil {
 		return nil, err
 	}
 
-	changedServers, err = GetTargetListNotifications(ctx, tx, changedServers)
+	changedServers, err = GetTargetListNotifications(ctx, q, changedServers)
 	if err != nil {
 		return nil, err
 	}
@@ -92,243 +90,137 @@ func ChangedServers(ctx context.Context, tx *sql.Tx) (_ map[model.MessageTarget]
 	return changedServers, nil
 }
 
-func ActiveServers(ctx context.Context, tx *sql.Tx) (servers map[model.MessageTarget]model.ServerStatus, err error) {
+func ActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.MessageTarget]model.ServerStatus, err error) {
 
-	servers, err = activeServers(ctx, tx)
+	servers, err = activeServers(ctx, q)
 	if err != nil {
 		return nil, err
 	}
 
-	clients, err := activeClients(ctx, tx)
+	servers, err = activeClients(ctx, q, servers)
 	if err != nil {
 		return nil, err
 	}
-	for target := range servers {
-		server := servers[target]
-		for _, client := range clients[target] {
-			server.AddClientStatus(client)
-		}
-		servers[target] = server
-	}
-
 	return servers, nil
 }
 
-func activeServers(ctx context.Context, conn Conn) (servers map[model.MessageTarget]model.ServerStatus, err error) {
-
-	serverRows, err := conn.QueryContext(ctx, `
-SELECT
-	c.guild_id,
-	c.channel_id,
-	t.message_id,
-	ts.timestamp,
-	ts.address,
-	ts.protocols,
-	ts.name,
-	ts.gametype,
-	ts.passworded,
-	ts.map,
-	ts.map_sha256sum,
-	ts.map_size,
-	ts.version,
-	ts.max_clients,
-	ts.max_players,
-	ts.score_kind
-FROM channels c
-JOIN tracking t ON c.channel_id = t.channel_id
-JOIN active_servers ts ON t.address = ts.address
-WHERE c.running = 1
-ORDER BY c.guild_id ASC, c.channel_id ASC
-`)
+func activeServers(ctx context.Context, q *sqlc.Queries) (servers map[model.MessageTarget]model.ServerStatus, err error) {
+	ltsr, err := q.ListTrackedServers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query active servers: %w", err)
+		return nil, err
 	}
-	defer func() {
-		err = errors.Join(err, serverRows.Close())
-	}()
-
-	servers = make(map[model.MessageTarget]model.ServerStatus)
-	for serverRows.Next() {
-		var (
-			target    model.MessageTarget
-			server    model.ServerStatus
-			protocols []byte
-			timestamp int64
-		)
-		err = serverRows.Scan(
-			&target.GuildID,
-			&target.ChannelID,
-			&target.MessageID,
-
-			&timestamp,
-			&server.Address,
-			&protocols,
-			&server.Name,
-			&server.Gametype,
-			&server.Passworded,
-			&server.Map,
-			&server.MapSha256Sum,
-			&server.MapSize,
-			&server.Version,
-			&server.MaxClients,
-			&server.MaxPlayers,
-			&server.ScoreKind,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan server status: %w", err)
+	servers = make(map[model.MessageTarget]model.ServerStatus, len(ltsr))
+	for _, row := range ltsr {
+		target := model.MessageTarget{
+			ChannelTarget: model.ChannelTarget{
+				GuildID:   discord.GuildID(row.GuildID),
+				ChannelID: discord.ChannelID(row.ChannelID),
+			},
+			MessageID: discord.MessageID(row.MessageID),
+		}
+		server := model.ServerStatus{
+			Timestamp:    time.UnixMilli(row.Timestamp),
+			Address:      row.Address,
+			Name:         row.Name,
+			Gametype:     row.Gametype,
+			Passworded:   row.Passworded,
+			Map:          row.Map,
+			MapSha256Sum: row.MapSha256sum,
+			MapSize:      row.MapSize,
+			Version:      row.Version,
+			MaxClients:   row.MaxClients,
+			MaxPlayers:   row.MaxPlayers,
+			ScoreKind:    row.ScoreKind,
 		}
 
-		err = server.ProtocolsFromJSON(protocols)
+		err = server.ProtocolsFromJSON([]byte(row.Protocols))
 		if err != nil {
 			return nil, err
 		}
-		server.Timestamp = time.UnixMilli(timestamp)
-		server.Clients = make(model.ClientStatusList, 0, 4)
+		servers[target] = server
+
+	}
+	return servers, nil
+}
+
+func activeClients(ctx context.Context, q *sqlc.Queries, servers map[model.MessageTarget]model.ServerStatus) (_ map[model.MessageTarget]model.ServerStatus, err error) {
+	if len(servers) == 0 {
+		return map[model.MessageTarget]model.ServerStatus{}, nil
+	}
+
+	ltscr, err := q.ListTrackedServerClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range ltscr {
+		var (
+			target = model.MessageTarget{
+				ChannelTarget: model.ChannelTarget{
+					GuildID:   discord.GuildID(row.GuildID),
+					ChannelID: discord.ChannelID(row.ChannelID),
+				},
+				MessageID: discord.MessageID(row.MessageID),
+			}
+			client = model.ClientStatus{
+				Name:      row.Name,
+				Clan:      row.Clan,
+				Country:   row.CountryID,
+				Score:     row.Score.(int64), // TODO: fix this
+				IsPlayer:  row.IsPlayer != 0,
+				Team:      row.Team,
+				FlagAbbr:  row.Abbr,
+				FlagEmoji: row.FlagEmoji.(string), // TODO: fix this
+			}
+		)
+
+		server := servers[target]
+		server.AddClientStatus(client)
 		servers[target] = server
 	}
 
 	return servers, nil
 }
 
-func activeClients(ctx context.Context, conn Conn) (_ map[model.MessageTarget]model.ClientStatusList, err error) {
-	rows, err := conn.QueryContext(ctx, `
-SELECT
-	c.guild_id,
-	c.channel_id,
-	t.message_id,
-	tsc.name,
-	tsc.clan,
-	tsc.country_id,
-	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END) as score,
-	tsc.is_player,
-	tsc.team,
-	f.abbr,
-	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
-FROM channels c
-JOIN tracking t ON c.channel_id = t.channel_id
-JOIN active_server_clients tsc ON t.address = tsc.address
-JOIN flags f ON tsc.country_id = f.flag_id
-LEFT JOIN flag_mappings fm ON
-	(
-		t.channel_id = fm.channel_id AND
-		tsc.country_id = fm.flag_id
-	)
-WHERE c.running = 1
-ORDER BY c.guild_id ASC, c.channel_id ASC, t._rowid_, score DESC, tsc.name ASC`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query active players: %w", err)
-	}
-	defer func() {
-		err = errors.Join(err, rows.Close())
-	}()
-
-	result := make(map[model.MessageTarget]model.ClientStatusList)
-	for rows.Next() {
-		var (
-			target model.MessageTarget
-			client model.ClientStatus
-		)
-		err = rows.Scan(
-			&target.GuildID,
-			&target.ChannelID,
-			&target.MessageID,
-
-			&client.Name,
-			&client.Clan,
-			&client.Country,
-			&client.Score,
-			&client.IsPlayer,
-			&client.Team,
-			&client.FlagAbbr,
-			&client.FlagEmoji,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan client status: %w", err)
-		}
-		result[target] = append(result[target], client)
-	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("failed to iterate over client status: %w", err)
-	}
-
-	return result, nil
-}
-
-func SetServers(ctx context.Context, tx *sql.Tx, servers []model.Server) error {
-	flags, err := ListFlags(ctx, tx)
+func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) error {
+	flags, err := q.ListFlags(ctx)
 	if err != nil {
 		return err
 	}
 
-	knownFlags := make(map[int]bool)
+	knownFlags := make(map[int64]bool)
 	for _, flag := range flags {
-		knownFlags[flag.ID] = true
+		knownFlags[flag.FlagID] = true
 	}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM active_server_clients`)
+	err = q.DeleteActiveServerClients(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete server clients: %w", err)
+		return err
 	}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM active_servers`)
+	err = q.DeleteActiveServers(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to delete servers: %w", err)
-	}
-
-	serverStmt, err := tx.PrepareContext(ctx, `
-INSERT INTO active_servers (
-	timestamp,
-	address,
-	protocols,
-	name,
-	gametype,
-	passworded,
-	map,
-	map_sha256sum,
-	map_size,
-	version,
-	max_clients,
-	max_players,
-	score_kind
-)
-VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare servers statement: %w", err)
-	}
-
-	clientStmt, err := tx.PrepareContext(ctx, `
-INSERT INTO active_server_clients (
-	address,
-	name,
-	clan,
-	country_id,
-	score,
-	is_player,
-	team
-) VALUES (?,?,?,?,?,?,?);`)
-	if err != nil {
-		return fmt.Errorf("failed to prepare clients statement: %w", err)
+		return err
 	}
 
 	for _, server := range servers {
-		_, err = serverStmt.ExecContext(ctx,
-			server.Timestamp.UnixMilli(),
-			server.Address,
-			string(server.ProtocolsJSON()),
-			server.Name,
-			server.Gametype,
-			server.Passworded,
-			server.Map,
-			server.MapSha256Sum,
-			server.MapSize,
-			server.Version,
-			server.MaxClients,
-			server.MaxPlayers,
-			server.ScoreKind,
-		)
+		err = q.InsertActiveServers(ctx, sqlc.InsertActiveServersParams{
+			Timestamp:    server.Timestamp.UnixMilli(),
+			Address:      server.Address,
+			Protocols:    string(server.ProtocolsJSON()),
+			Name:         server.Name,
+			Gametype:     server.Gametype,
+			Passworded:   server.Passworded,
+			Map:          server.Map,
+			MapSha256sum: server.MapSha256Sum,
+			MapSize:      server.MapSize,
+			Version:      server.Version,
+			MaxClients:   server.MaxClients,
+			MaxPlayers:   server.MaxPlayers,
+			ScoreKind:    server.ScoreKind,
+		})
 		if err != nil {
-			return fmt.Errorf("failed to insert server %s: %w", server.Address, err)
+			return err
 		}
 
 		for _, client := range server.Clients {
@@ -342,44 +234,33 @@ INSERT INTO active_server_clients (
 				client.Country = -1
 			}
 
-			_, err = clientStmt.ExecContext(ctx,
-				server.Address,
-				client.Name,
-				client.Clan,
-				client.Country,
-				client.Score,
-				client.IsPlayer,
-				client.Team,
-			)
+			err = q.InsertActiveServerClients(ctx, sqlc.InsertActiveServerClientsParams{
+				Address:   server.Address,
+				Name:      client.Name,
+				Clan:      client.Clan,
+				CountryID: client.Country,
+				Score:     client.Score,
+				IsPlayer:  client.IsPlayerInt64(),
+				Team:      client.Team,
+			})
+
 			if err != nil {
-				return fmt.Errorf("failed to insert client %s for address %s: %w", client.Name, server.Address, err)
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func ExistsServer(ctx context.Context, conn Conn, address string) (found bool, err error) {
-	rows, err := conn.QueryContext(ctx, `
-SELECT
-	address
-FROM active_servers
-WHERE address = ?
-LIMIT 1;`, address)
-
+func ExistsServer(ctx context.Context, q *sqlc.Queries, address string) (found bool, err error) {
+	addr, err := q.ExistsServer(ctx, address)
 	if err != nil {
-		return false, fmt.Errorf("failed to query server address: %s: %w", address, err)
+		return false, err
 	}
-	defer func() {
-		err = errors.Join(err, rows.Close())
-	}()
 
-	if !rows.Next() {
+	if len(addr) == 0 {
 		return false, nil
 	}
-	err = rows.Err()
-	if err != nil {
-		return false, fmt.Errorf("failed to iterate over server addresses: %w", err)
-	}
-	return true, nil
+
+	return addr[0] == address, nil
 }

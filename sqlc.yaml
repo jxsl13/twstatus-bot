@@ -1,0 +1,26 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: [
+      "sql/active_servers.sql",
+      "sql/channel.sql",
+      "sql/flag_mappings.sql",
+      "sql/flags.sql",
+      "sql/guild.sql",
+      "sql/player_count_notification.sql",
+      "sql/tracking.sql",
+      "sql/prev_active_servers.sql",
+    ]
+    schema: "sql/schema.sql"
+    gen:
+      go:
+        package: "sqlc"
+        out: "sqlc"
+        #overrides:
+        #  - db_type: "INTEGER"
+        #    go_type:
+        #      type: "int"
+        emit_prepared_queries: true
+        emit_empty_slices: true
+        emit_enum_valid_method: true
+        emit_pointers_for_null_types: true

@@ -27,8 +27,10 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 		}
 	}()
 
+	queries := b.queries.WithTx(tx)
+
 	channel, err := dao.StartChannel(ctx,
-		tx,
+		queries,
 		data.Event.GuildID,
 		optionalChannelID(data),
 	)
@@ -59,8 +61,10 @@ func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp 
 		}
 	}()
 
+	queries := b.queries.WithTx(tx)
+
 	channel, err := dao.StopChannel(ctx,
-		tx,
+		queries,
 		data.Event.GuildID,
 		optionalChannelID(data),
 	)

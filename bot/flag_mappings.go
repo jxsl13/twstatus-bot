@@ -23,7 +23,7 @@ func (b *Bot) listFlagMappings(ctx context.Context, data cmdroute.CommandData) *
 
 	channelID := optionalChannelID(data)
 	mappings, err := dao.ListFlagMappings(ctx,
-		b.db,
+		b.queries,
 		data.Event.GuildID, channelID,
 	)
 	if err != nil {
@@ -58,7 +58,9 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		}
 	}()
 
-	flag, err := dao.GetFlagByAbbr(ctx, tx, params.Abbr)
+	queries := b.queries.WithTx(tx)
+
+	flag, err := dao.GetFlagByAbbr(ctx, queries, params.Abbr)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -71,7 +73,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		Emoji:     params.Emoji,
 	}
 
-	err = dao.AddFlagMapping(ctx, tx, mapping)
+	err = dao.AddFlagMapping(ctx, queries, mapping)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -109,9 +111,11 @@ func (b *Bot) removeFlagMapping(ctx context.Context, data cmdroute.CommandData) 
 		}
 	}()
 
+	queries := b.queries.WithTx(tx)
+
 	err = dao.RemoveFlagMapping(
 		ctx,
-		tx,
+		queries,
 		data.Event.GuildID,
 		optionalChannelID(data),
 		params.Abbr,

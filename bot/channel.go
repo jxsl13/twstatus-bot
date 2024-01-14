@@ -18,7 +18,7 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 	defer b.db.Unlock()
 
 	guildId := data.Event.GuildID
-	channels, err := dao.ListChannels(ctx, b.db, guildId)
+	channels, err := dao.ListChannels(ctx, b.queries, guildId)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -44,12 +44,14 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 		}
 	}()
 
+	queries := b.queries.WithTx(tx)
+
 	channel := model.Channel{
 		GuildID: data.Event.GuildID,
 		ID:      optionalChannelID(data),
 		Running: false,
 	}
-	err = dao.AddChannel(ctx, tx, channel)
+	err = dao.AddChannel(ctx, queries, channel)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -76,17 +78,19 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 		}
 	}()
 
+	queries := b.queries.WithTx(tx)
+
 	var (
 		guildID   = data.Event.GuildID
 		channelID = optionalChannelID(data)
 	)
 
-	channel, err := dao.GetChannel(ctx, tx, guildID, channelID)
+	channel, err := dao.GetChannel(ctx, queries, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	trackings, err := dao.ListTrackingsByChannelID(ctx, tx, guildID, channelID)
+	trackings, err := dao.ListTrackingsByChannelID(ctx, queries, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -103,7 +107,7 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 
 	err = dao.RemoveChannel(
 		ctx,
-		tx,
+		queries,
 		guildID,
 		channelID,
 	)

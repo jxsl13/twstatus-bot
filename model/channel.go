@@ -13,6 +13,13 @@ type Channel struct {
 	Running bool
 }
 
+func (c *Channel) RunningInt64() int64 {
+	if c.Running {
+		return 1
+	}
+	return 0
+}
+
 func (c Channel) String() string {
 	return fmt.Sprintf("<#%d>", c.ID)
 }

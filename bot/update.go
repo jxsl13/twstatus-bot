@@ -173,7 +173,7 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) error {
 	b.db.Lock()
 	defer b.db.Unlock()
 
-	err = dao.RemoveTrackingByMessageID(b.ctx, b.db, target.GuildID, target.MessageID)
+	err = dao.RemoveTrackingByMessageID(b.ctx, b.queries, target.GuildID, target.MessageID)
 	if err != nil {
 		return fmt.Errorf("failed to remove tracking of message id: %s: %w", target.MessageID, err)
 	}

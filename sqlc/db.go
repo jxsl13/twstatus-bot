@@ -87,6 +87,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listAllTrackingsStmt, err = db.PrepareContext(ctx, listAllTrackings); err != nil {
 		return nil, fmt.Errorf("error preparing query ListAllTrackings: %w", err)
 	}
+	if q.listChannelTrackingsStmt, err = db.PrepareContext(ctx, listChannelTrackings); err != nil {
+		return nil, fmt.Errorf("error preparing query ListChannelTrackings: %w", err)
+	}
 	if q.listFlagMappingsStmt, err = db.PrepareContext(ctx, listFlagMappings); err != nil {
 		return nil, fmt.Errorf("error preparing query ListFlagMappings: %w", err)
 	}
@@ -105,6 +108,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.listPrevActiveServersStmt, err = db.PrepareContext(ctx, listPrevActiveServers); err != nil {
 		return nil, fmt.Errorf("error preparing query ListPrevActiveServers: %w", err)
 	}
+	if q.listPreviousMessageMentionsStmt, err = db.PrepareContext(ctx, listPreviousMessageMentions); err != nil {
+		return nil, fmt.Errorf("error preparing query ListPreviousMessageMentions: %w", err)
+	}
 	if q.listTrackedServerClientsStmt, err = db.PrepareContext(ctx, listTrackedServerClients); err != nil {
 		return nil, fmt.Errorf("error preparing query ListTrackedServerClients: %w", err)
 	}
@@ -119,6 +125,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.removeGuildChannelStmt, err = db.PrepareContext(ctx, removeGuildChannel); err != nil {
 		return nil, fmt.Errorf("error preparing query RemoveGuildChannel: %w", err)
+	}
+	if q.removeMessageMentionsStmt, err = db.PrepareContext(ctx, removeMessageMentions); err != nil {
+		return nil, fmt.Errorf("error preparing query RemoveMessageMentions: %w", err)
 	}
 	if q.removePlayerCountNotificationStmt, err = db.PrepareContext(ctx, removePlayerCountNotification); err != nil {
 		return nil, fmt.Errorf("error preparing query RemovePlayerCountNotification: %w", err)
@@ -254,6 +263,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listAllTrackingsStmt: %w", cerr)
 		}
 	}
+	if q.listChannelTrackingsStmt != nil {
+		if cerr := q.listChannelTrackingsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listChannelTrackingsStmt: %w", cerr)
+		}
+	}
 	if q.listFlagMappingsStmt != nil {
 		if cerr := q.listFlagMappingsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listFlagMappingsStmt: %w", cerr)
@@ -284,6 +298,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing listPrevActiveServersStmt: %w", cerr)
 		}
 	}
+	if q.listPreviousMessageMentionsStmt != nil {
+		if cerr := q.listPreviousMessageMentionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing listPreviousMessageMentionsStmt: %w", cerr)
+		}
+	}
 	if q.listTrackedServerClientsStmt != nil {
 		if cerr := q.listTrackedServerClientsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing listTrackedServerClientsStmt: %w", cerr)
@@ -307,6 +326,11 @@ func (q *Queries) Close() error {
 	if q.removeGuildChannelStmt != nil {
 		if cerr := q.removeGuildChannelStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing removeGuildChannelStmt: %w", cerr)
+		}
+	}
+	if q.removeMessageMentionsStmt != nil {
+		if cerr := q.removeMessageMentionsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing removeMessageMentionsStmt: %w", cerr)
 		}
 	}
 	if q.removePlayerCountNotificationStmt != nil {
@@ -409,17 +433,20 @@ type Queries struct {
 	insertActiveServerClientsStmt      *sql.Stmt
 	insertActiveServersStmt            *sql.Stmt
 	listAllTrackingsStmt               *sql.Stmt
+	listChannelTrackingsStmt           *sql.Stmt
 	listFlagMappingsStmt               *sql.Stmt
 	listFlagsStmt                      *sql.Stmt
 	listGuildChannelsStmt              *sql.Stmt
 	listGuildsStmt                     *sql.Stmt
 	listPlayerCountNotificationsStmt   *sql.Stmt
 	listPrevActiveServersStmt          *sql.Stmt
+	listPreviousMessageMentionsStmt    *sql.Stmt
 	listTrackedServerClientsStmt       *sql.Stmt
 	listTrackedServersStmt             *sql.Stmt
 	removeFlagMappingStmt              *sql.Stmt
 	removeGuildStmt                    *sql.Stmt
 	removeGuildChannelStmt             *sql.Stmt
+	removeMessageMentionsStmt          *sql.Stmt
 	removePlayerCountNotificationStmt  *sql.Stmt
 	removePlayerCountNotificationsStmt *sql.Stmt
 	removePrevActiveServerStmt         *sql.Stmt
@@ -455,17 +482,20 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		insertActiveServerClientsStmt:      q.insertActiveServerClientsStmt,
 		insertActiveServersStmt:            q.insertActiveServersStmt,
 		listAllTrackingsStmt:               q.listAllTrackingsStmt,
+		listChannelTrackingsStmt:           q.listChannelTrackingsStmt,
 		listFlagMappingsStmt:               q.listFlagMappingsStmt,
 		listFlagsStmt:                      q.listFlagsStmt,
 		listGuildChannelsStmt:              q.listGuildChannelsStmt,
 		listGuildsStmt:                     q.listGuildsStmt,
 		listPlayerCountNotificationsStmt:   q.listPlayerCountNotificationsStmt,
 		listPrevActiveServersStmt:          q.listPrevActiveServersStmt,
+		listPreviousMessageMentionsStmt:    q.listPreviousMessageMentionsStmt,
 		listTrackedServerClientsStmt:       q.listTrackedServerClientsStmt,
 		listTrackedServersStmt:             q.listTrackedServersStmt,
 		removeFlagMappingStmt:              q.removeFlagMappingStmt,
 		removeGuildStmt:                    q.removeGuildStmt,
 		removeGuildChannelStmt:             q.removeGuildChannelStmt,
+		removeMessageMentionsStmt:          q.removeMessageMentionsStmt,
 		removePlayerCountNotificationStmt:  q.removePlayerCountNotificationStmt,
 		removePlayerCountNotificationsStmt: q.removePlayerCountNotificationsStmt,
 		removePrevActiveServerStmt:         q.removePrevActiveServerStmt,

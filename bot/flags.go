@@ -15,7 +15,7 @@ import (
 func (b *Bot) listFlags(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
 
 	b.db.Lock()
-	flags, err := dao.ListFlags(ctx, b.db)
+	flags, err := dao.ListFlags(ctx, b.queries)
 	b.db.Unlock()
 
 	if err != nil {

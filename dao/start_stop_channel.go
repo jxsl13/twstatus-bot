@@ -2,15 +2,15 @@ package dao
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func StartChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
-	channel, err := GetChannel(ctx, tx, guildID, channelID)
+func StartChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
+	channel, err := GetChannel(ctx, q, guildID, channelID)
 	if err != nil {
 		return c, err
 	}
@@ -19,19 +19,18 @@ func StartChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, chan
 		return c, fmt.Errorf("channel %s is already active", channel)
 	}
 
-	_, err = tx.ExecContext(ctx, `
-UPDATE channels
-SET running = 1
-WHERE guild_id = ?
-AND channel_id = ?;`, guildID, channelID)
+	err = q.StartChannel(ctx, sqlc.StartChannelParams{
+		GuildID:   int64(guildID),
+		ChannelID: int64(channelID),
+	})
 	if err != nil {
 		return c, fmt.Errorf("failed to start channel %s: %w", channel, err)
 	}
 	return channel, nil
 }
 
-func StopChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
-	channel, err := GetChannel(ctx, tx, guildID, channelID)
+func StopChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
+	channel, err := GetChannel(ctx, q, guildID, channelID)
 	if err != nil {
 		return c, err
 	}
@@ -40,11 +39,10 @@ func StopChannel(ctx context.Context, tx *sql.Tx, guildID discord.GuildID, chann
 		return c, fmt.Errorf("channel %s is already inactive", channel)
 	}
 
-	_, err = tx.ExecContext(ctx, `
-UPDATE channels
-SET running = 0
-WHERE guild_id = ?
-AND channel_id = ?;`, guildID, channelID)
+	err = q.StopChannel(ctx, sqlc.StopChannelParams{
+		GuildID:   int64(guildID),
+		ChannelID: int64(channelID),
+	})
 	if err != nil {
 		return c, fmt.Errorf("failed to stop channel %s: %w", channel, err)
 	}

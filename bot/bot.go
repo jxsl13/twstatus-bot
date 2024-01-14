@@ -474,7 +474,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 		if err != nil {
 			if ErrIsNotFound(err) {
 				// remove tracking of messages that were removed during downtime.
-				err = dao.RemoveTrackingByMessageID(ctx, tx, t.GuildID, t.MessageID)
+				err = dao.RemoveTrackingByMessageID(ctx, queries, t.GuildID, t.MessageID)
 				if err != nil {
 					return err
 				}

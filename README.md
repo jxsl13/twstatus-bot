@@ -41,13 +41,14 @@ Lastly, you can build and deploy the docker container using `docker compose` by 
 Usage:
 ```
 Environment variables:
-  TWBOT_DISCORD_TOKEN       Discord App token.
-  TWBOT_SUPER_ADMINS        Comma separated list of Discord User IDs that are super admins.
-  TWBOT_DB_DIR              Database directory (default: ".")
-  TWBOT_DB_WAL              Enable Write-Ahead-Log for SQLite (default: "false")
-  TWBOT_DISCORD_GUILD_ID    Discord Bot Owner Guild ID
-  TWBOT_POLL_INTERVAL       Poll interval for DDNet's http master server (default: "16s")
-  TWBOT_LEGACY_FORMAT       Use legacy message format. If disabled, rich text embeddings will be used. (default: "false")
+  TWBOT_DISCORD_TOKEN         Discord App token.
+  TWBOT_SUPER_ADMINS          Comma separated list of Discord User IDs that are super admins.
+  TWBOT_DB_DIR                Database directory (default: ".")
+  TWBOT_DB_WAL                Enable Write-Ahead-Log for SQLite (default: "false")
+  TWBOT_DISCORD_GUILD_ID      Discord Bot Owner Guild ID
+  TWBOT_DISCORD_CHANNEL_ID    Discord Bot Owner ChannelID for logs
+  TWBOT_POLL_INTERVAL         Poll interval for DDNet's http master server (default: "16s")
+  TWBOT_LEGACY_FORMAT         Use legacy message format. If disabled, rich text embeddings will be used. (default: "false")
 
 Usage:
   twstatus-bot [flags]
@@ -58,15 +59,16 @@ Available Commands:
   help        Help about any command
 
 Flags:
-  -c, --config string             .env config file path (or via env variable TWBOT_CONFIG)
-  -d, --db-dir string             Database directory (default ".")
-  -w, --db-wal                    Enable Write-Ahead-Log for SQLite
-  -g, --discord-guild-id string   Discord Bot Owner Guild ID
-  -t, --discord-token string      Discord App token.
-  -h, --help                      help for twstatus-bot
-  -l, --legacy-format             Use legacy message format. If disabled, rich text embeddings will be used.
-  -p, --poll-interval duration    Poll interval for DDNet's http master server (default 16s)
-  -a, --super-admins string       Comma separated list of Discord User IDs that are super admins.
+  -c, --config string               .env config file path (or via env variable TWBOT_CONFIG)
+  -d, --db-dir string               Database directory (default ".")
+  -w, --db-wal                      Enable Write-Ahead-Log for SQLite
+  -i, --discord-channel-id string   Discord Bot Owner ChannelID for logs
+  -g, --discord-guild-id string     Discord Bot Owner Guild ID
+  -t, --discord-token string        Discord App token.
+  -h, --help                        help for twstatus-bot
+  -l, --legacy-format               Use legacy message format. If disabled, rich text embeddings will be used.
+  -p, --poll-interval duration      Poll interval for DDNet's http master server (default 16s)
+  -a, --super-admins string         Comma separated list of Discord User IDs that are super admins.
 
 Use "twstatus-bot [command] --help" for more information about a command.
 ```
@@ -78,6 +80,7 @@ Create a `.env` file in the current directory
 TWBOT_DISCORD_TOKEN="Nj..."
 TWBOT_SUPER_ADMINS="134948708277026816"
 TWBOT_DISCORD_GUILD_ID="628902095747285012"
+TWBOT_DISCORD_CHANNEL_ID=""
 
 # optional parameters
 # format: 1h30m5s

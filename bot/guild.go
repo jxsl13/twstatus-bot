@@ -23,7 +23,7 @@ func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.In
 	b.db.Lock()
 	defer b.db.Unlock()
 
-	guilds, err := dao.ListGuilds(ctx, b.db)
+	guilds, err := dao.ListGuilds(ctx, b.queries)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -61,7 +61,7 @@ func (b *Bot) addGuildCommand(ctx context.Context, data cmdroute.CommandData) *a
 	b.db.Lock()
 	defer b.db.Unlock()
 
-	err = dao.AddGuild(ctx, b.db, model.Guild{
+	err = dao.AddGuild(ctx, b.queries, model.Guild{
 		ID:          id,
 		Description: opts.Description,
 	})
@@ -104,7 +104,9 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 		}
 	}()
 
-	guild, err := dao.RemoveGuild(ctx, tx, id)
+	queries := b.queries.WithTx(tx)
+
+	guild, err := dao.RemoveGuild(ctx, queries, id)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -120,7 +122,7 @@ func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
 	b.db.Lock()
 	defer b.db.Unlock()
 
-	err := dao.AddGuild(b.ctx, b.db, model.Guild{
+	err := dao.AddGuild(b.ctx, b.queries, model.Guild{
 		ID:          e.ID,
 		Description: e.Name,
 	})
@@ -149,7 +151,9 @@ func (b *Bot) handleRemoveGuild(e *gateway.GuildDeleteEvent) {
 		}
 	}()
 
-	guild, err := dao.RemoveGuild(b.ctx, tx, e.ID)
+	queries := b.queries.WithTx(tx)
+
+	guild, err := dao.RemoveGuild(b.ctx, queries, e.ID)
 	if err != nil {
 		log.Printf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
 	} else {

@@ -259,7 +259,7 @@ var (
 )
 
 type Flag struct {
-	ID    int
+	ID    int64
 	Abbr  string
 	Emoji string
 }

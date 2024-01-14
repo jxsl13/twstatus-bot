@@ -8,8 +8,9 @@ sql:
       "sql/flags.sql",
       "sql/guild.sql",
       "sql/player_count_notification.sql",
-      "sql/tracking.sql",
       "sql/prev_active_servers.sql",
+      "sql/prev_mentions.sql",
+      "sql/tracking.sql"
     ]
     schema: "sql/schema.sql"
     gen:

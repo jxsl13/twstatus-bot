@@ -2,7 +2,6 @@ package dao
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
@@ -33,38 +32,28 @@ func ListAllTrackings(ctx context.Context, q *sqlc.Queries) (trackings model.Tra
 	return result, nil
 }
 
-func ListTrackingsByChannelID(ctx context.Context, conn Conn, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
-	rows, err := conn.QueryContext(ctx, `
-SELECT guild_id, channel_id, address, message_id
-FROM tracking
-WHERE guild_id = ?
-AND channel_id = ?
-ORDER BY message_id ASC;`, guildID, channelID)
+func ListTrackingsByChannelID(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
+	latr, err := q.ListChannelTrackings(ctx, sqlc.ListChannelTrackingsParams{
+		GuildID:   int64(guildID),
+		ChannelID: int64(channelID),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get trackings for channel %d: %w", channelID, err)
+		return nil, fmt.Errorf("failed to get trackings: %w", err)
 	}
-	defer func() {
-		err = errors.Join(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		var tracking model.Tracking
-		err = rows.Scan(
-			&tracking.GuildID,
-			&tracking.ChannelID,
-			&tracking.Address,
-			&tracking.MessageID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan tracking: %w", err)
-		}
-		trackings = append(trackings, tracking)
+	result := make(model.Trackings, 0, len(latr))
+	for _, t := range latr {
+		result = append(result, model.Tracking{
+			MessageTarget: model.MessageTarget{
+				ChannelTarget: model.ChannelTarget{
+					GuildID:   guildID,
+					ChannelID: channelID,
+				},
+				MessageID: discord.MessageID(t.MessageID),
+			},
+			Address: t.Address,
+		})
 	}
-	err = rows.Err()
-	if err != nil {
-		return nil, fmt.Errorf("failed to iterate tracking: %w", err)
-	}
-	return trackings, nil
+	return result, nil
 }
 
 func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) (err error) {
@@ -103,13 +92,16 @@ func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) 
 
 }
 
-func RemoveTrackingByMessageID(ctx context.Context, conn Conn, guildID discord.GuildID, messageID discord.MessageID) (err error) {
-	_, err = conn.ExecContext(ctx, `
-DELETE FROM tracking
-WHERE guild_id = ?
-AND message_id = ?;`, guildID, messageID)
+func RemoveTrackingByMessageID(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, messageID discord.MessageID) (err error) {
+	err = q.RemoveTrackingByMessageId(
+		ctx,
+		sqlc.RemoveTrackingByMessageIdParams{
+			GuildID:   int64(guildID),
+			MessageID: int64(messageID),
+		},
+	)
 	if err != nil {
-		return fmt.Errorf("failed to delete tracking for message id: %s: %w", messageID, err)
+		return fmt.Errorf("failed to remove tracking by message id: %w", err)
 	}
 	return nil
 }

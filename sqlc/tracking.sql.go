@@ -76,6 +76,54 @@ func (q *Queries) ListAllTrackings(ctx context.Context) ([]ListAllTrackingsRow, 
 	return items, nil
 }
 
+const listChannelTrackings = `-- name: ListChannelTrackings :many
+SELECT guild_id, channel_id, address, message_id
+FROM tracking
+WHERE guild_id = ?
+AND channel_id = ?
+ORDER BY message_id ASC
+`
+
+type ListChannelTrackingsParams struct {
+	GuildID   int64
+	ChannelID int64
+}
+
+type ListChannelTrackingsRow struct {
+	GuildID   int64
+	ChannelID int64
+	Address   string
+	MessageID int64
+}
+
+func (q *Queries) ListChannelTrackings(ctx context.Context, arg ListChannelTrackingsParams) ([]ListChannelTrackingsRow, error) {
+	rows, err := q.query(ctx, q.listChannelTrackingsStmt, listChannelTrackings, arg.GuildID, arg.ChannelID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChannelTrackingsRow{}
+	for rows.Next() {
+		var i ListChannelTrackingsRow
+		if err := rows.Scan(
+			&i.GuildID,
+			&i.ChannelID,
+			&i.Address,
+			&i.MessageID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeTrackingByMessageId = `-- name: RemoveTrackingByMessageId :exec
 DELETE FROM tracking
 WHERE guild_id = ?

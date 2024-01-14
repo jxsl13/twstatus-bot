@@ -2,7 +2,6 @@ package dao
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 
@@ -37,13 +36,6 @@ var (
 	ErrAlreadyExists = errors.New("already exists")
 )
 
-type Conn interface {
-	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
-	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
-}
-
 func InitDatabase(ctx context.Context, db *db.DB, wal bool) (err error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
@@ -59,7 +51,7 @@ func InitDatabase(ctx context.Context, db *db.DB, wal bool) (err error) {
 
 	stmt := `
 PRAGMA strict = ON;
-PRAGMA foreign_keys = OFF;
+PRAGMA foreign_keys = ON;
 `
 	if wal {
 		stmt += `

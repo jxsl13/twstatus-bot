@@ -29,7 +29,7 @@ func ErrIsNotFound(err error) bool {
 		return false
 	}
 
-	return herr.Code == http.StatusNotFound
+	return herr.Status == http.StatusNotFound
 }
 
 // closeTimer should be used as a deferred function

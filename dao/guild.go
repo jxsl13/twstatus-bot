@@ -2,47 +2,33 @@ package dao
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ListGuilds(ctx context.Context, conn Conn) (guilds model.Guilds, err error) {
-	rows, err := conn.QueryContext(ctx, `SELECT guild_id, description FROM guilds ORDER BY guild_id ASC`)
+func ListGuilds(ctx context.Context, q *sqlc.Queries) (guilds model.Guilds, err error) {
+	gs, err := q.ListGuilds(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query guilds: %w", err)
 	}
-	defer func() {
-		err = errors.Join(err, rows.Close())
-	}()
-
-	for rows.Next() {
-		var guild model.Guild
-		err = rows.Scan(
-			&guild.ID,
-			&guild.Description,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan guild: %w", err)
-		}
-		guilds = append(guilds, guild)
+	guilds = make(model.Guilds, 0, len(gs))
+	for _, g := range gs {
+		guilds = append(guilds, model.Guild{
+			ID:          discord.GuildID(g.GuildID),
+			Description: g.Description,
+		})
 	}
-	if rows.Err() != nil {
-		return nil, fmt.Errorf("failed to iterate guilds: %w", err)
-	}
-
 	return guilds, nil
 }
 
-func AddGuild(ctx context.Context, conn Conn, guild model.Guild) (err error) {
-	_, err = conn.ExecContext(ctx, `INSERT INTO guilds (guild_id, description) VALUES (?, ?)`,
-		guild.ID,
-		guild.Description,
-	)
-
+func AddGuild(ctx context.Context, q *sqlc.Queries, guild model.Guild) (err error) {
+	err = q.AddGuild(ctx, sqlc.AddGuildParams{
+		GuildID:     int64(guild.ID),
+		Description: guild.Description,
+	})
 	if err != nil {
 		if IsPrimaryKeyConstraintErr(err) {
 			return fmt.Errorf("%w: guild %d", ErrAlreadyExists, guild.ID)
@@ -52,41 +38,31 @@ func AddGuild(ctx context.Context, conn Conn, guild model.Guild) (err error) {
 	return nil
 }
 
-func GetGuild(ctx context.Context, conn Conn, guildID discord.GuildID) (guild model.Guild, err error) {
-	rows, err := conn.QueryContext(ctx, `SELECT guild_id, description FROM guilds WHERE guild_id = ? LIMIT 1;`,
-		int64(guildID),
-	)
+func GetGuild(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID) (guild model.Guild, err error) {
+	gs, err := q.GetGuild(ctx, int64(guildID))
 	if err != nil {
 		return model.Guild{}, fmt.Errorf("failed to query guild: %w", err)
 	}
-	defer func() {
-		err = errors.Join(err, rows.Close())
-	}()
-
-	if !rows.Next() {
+	if len(gs) == 0 {
 		return model.Guild{}, fmt.Errorf("%w: guild %d", ErrNotFound, guildID)
 	}
-
-	err = rows.Scan(
-		&guild.ID,
-		&guild.Description,
-	)
-	if err != nil {
-		return model.Guild{}, fmt.Errorf("failed to scan guild: %w", err)
-	}
-
-	return guild, nil
+	g := gs[0]
+	return model.Guild{
+		ID:          discord.GuildID(g.GuildID),
+		Description: g.Description,
+	}, nil
 }
 
-func RemoveGuild(ctx context.Context, tx *sql.Tx, guildID discord.GuildID) (guild model.Guild, err error) {
-	guild, err = GetGuild(ctx, tx, guildID)
+func RemoveGuild(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID) (guild model.Guild, err error) {
+
+	guild, err = GetGuild(ctx, q, guildID)
 	if err != nil {
 		return model.Guild{}, fmt.Errorf("failed to get guild: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, `DELETE FROM guilds WHERE guild_id = ?`, int64(guild.ID))
+	err = q.RemoveGuild(ctx, int64(guildID))
 	if err != nil {
-		return model.Guild{}, fmt.Errorf("failed to delete guild: %w", err)
+		return model.Guild{}, fmt.Errorf("failed to remove guild: %w", err)
 	}
-	return guild, nil
+	return guild, err
 }

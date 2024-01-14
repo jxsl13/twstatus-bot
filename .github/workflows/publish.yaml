@@ -11,15 +11,21 @@ env:
 on:
   workflow_dispatch:
   push:
+    tags:
+      - 'v*'
     branches:
       - 'master'
       - 'main'
-    tags:
-      - 'v*'
+    paths:
+      - "**.go"
+      - "**.sql"
   pull_request:
     branches:
       - 'master'
       - 'main'
+    paths:
+      - "**.go"
+      - "**.sql"
 
 jobs:
   docker:

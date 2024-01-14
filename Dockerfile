@@ -1,4 +1,5 @@
-FROM golang:alpine  as build
+FROM golang:alpine as build
+
 
 LABEL maintainer "github.com/jxsl13"
 
@@ -11,7 +12,7 @@ COPY . ./
 COPY go.* ./
 
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-w -extldflags "-static"' -o twstatus-bot .
+RUN CGO_ENABLED=0 go build -a -ldflags '-w -extldflags "-static"' -o twstatus-bot .
 
 
 FROM alpine:latest as minimal

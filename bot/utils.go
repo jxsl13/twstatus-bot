@@ -32,6 +32,15 @@ func ErrIsNotFound(err error) bool {
 	return herr.Status == http.StatusNotFound
 }
 
+func ErrIsAccessDenied(err error) bool {
+	var herr *httputil.HTTPError
+	if !errors.As(err, &herr) {
+		return false
+	}
+
+	return herr.Status == http.StatusForbidden
+}
+
 // closeTimer should be used as a deferred function
 // in order to cleanly shut down a timer
 func closeTimer(timer *time.Timer, drained *bool) {

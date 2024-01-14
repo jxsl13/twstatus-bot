@@ -4,7 +4,7 @@ This is the more user friendly variant of the Teeworlds Server Status Bot which 
 
 ## User guide
 
-Add this bot to your Discord server: [Click here](https://discord.com/api/oauth2/authorize?client_id=628902630617513985&permissions=18685255740480&scope=bot)
+Add this bot to your Discord server: [Click here](https://discord.com/api/oauth2/authorize?client_id=628902630617513985&permissions=28582403894353&scope=bot)
 
 ### Discord setup commands
 Initially you need to specify which channel you want to allow the bot to post into.

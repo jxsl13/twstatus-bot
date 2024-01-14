@@ -10,7 +10,7 @@ services:
     # build: .
 
     # comment when building from source
-    image: ghcr.io/teeworlds/twstatus-bot:main
+    image: ghcr.io/jxsl13/twstatus-bot:main
     restart: unless-stopped
     environment:
         TWBOT_DISCORD_TOKEN: ${TWBOT_DISCORD_TOKEN:?err}

@@ -75,7 +75,7 @@ Use "twstatus-bot [command] --help" for more information about a command.
 
 Docker usage:
 Create a `.env` file in the current directory
-```dotenv
+```shell
 # mandatory parameters
 TWBOT_DISCORD_TOKEN="Nj..."
 TWBOT_SUPER_ADMINS="134948708277026816"

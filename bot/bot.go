@@ -504,7 +504,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 			log.Printf("fetching users for emoji %s of message %s", emoji, t.MessageTarget)
 			users, err := b.state.Reactions(m.ChannelID, t.MessageID, emoji, 0)
 			if err != nil {
-				if ErrIsNotFound(err) {
+				if ErrIsNotFound(err) || ErrIsAccessDenied(err) {
 					continue
 				}
 				return err

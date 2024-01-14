@@ -16,7 +16,7 @@ import (
 )
 
 func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	if !b.IsSuperAdmin(data.Event.SenderID()) {
+	if !b.IsSuperAdmin(data) {
 		return ErrAccessForbidden()
 	}
 
@@ -40,7 +40,7 @@ type AddGuildOpts struct { // optional (taken from current guild)
 }
 
 func (b *Bot) addGuildCommand(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	if !b.IsSuperAdmin(data.Event.SenderID()) {
+	if !b.IsSuperAdmin(data) {
 		return ErrAccessForbidden()
 	}
 
@@ -78,7 +78,7 @@ func (b *Bot) addGuildCommand(ctx context.Context, data cmdroute.CommandData) *a
 }
 
 func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	if !b.IsSuperAdmin(data.Event.SenderID()) {
+	if !b.IsSuperAdmin(data) {
 		return ErrAccessForbidden()
 	}
 

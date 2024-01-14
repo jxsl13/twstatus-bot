@@ -5,7 +5,12 @@ services:
   # monitor of teeworlds servers
   twstatus-bot:
     container_name: twstatus-bot
-    build: .
+
+    # uncomment to build from source
+    # build: .
+
+    # comment when building from source
+    image: ghcr.io/teeworlds/twstatus-bot:main
     restart: unless-stopped
     environment:
         TWBOT_DISCORD_TOKEN: ${TWBOT_DISCORD_TOKEN:?err}
@@ -13,6 +18,7 @@ services:
         TWBOT_DB_DIR: ${TWBOT_DB_DIR:-/data}
         TWBOT_DB_WAL: ${TWBOT_DB_WAL:-false}
         TWBOT_DISCORD_GUILD_ID: ${TWBOT_DISCORD_GUILD_ID:?err}
+        TWBOT_DISCORD_CHANNEL_ID: ${TWBOT_DISCORD_CHANNEL_ID:?err}
         TWBOT_POLL_INTERVAL: ${TWBOT_POLL_INTERVAL:-16s}
         TWBOT_LEGACY_FORMAT: ${TWBOT_LEGACY_FORMAT:-false}
     volumes:

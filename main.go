@@ -99,6 +99,7 @@ func (c *rootContext) RunE(cmd *cobra.Command, args []string) error {
 		c.DB,
 		c.Config.SuperAdmins,
 		c.Config.GuildID,
+		c.Config.ChannelID,
 		c.Config.PollInterval,
 		c.Config.LegacyMessageFormat,
 	)

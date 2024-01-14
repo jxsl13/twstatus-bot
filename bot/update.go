@@ -183,7 +183,7 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) error {
 }
 
 func (b *Bot) updateServerListCommand(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	if !b.IsSuperAdmin(data.Event.SenderID()) {
+	if !b.IsSuperAdmin(data) {
 		return ErrAccessForbidden()
 	}
 

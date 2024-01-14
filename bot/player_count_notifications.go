@@ -91,7 +91,7 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 
 func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRemoveEvent) {
 	val, found := reactionPlayerCountNotificationMap[e.Emoji.APIString()]
-	if !found || b.userId == e.UserID {
+	if !found || b.userID == e.UserID {
 		return
 	}
 

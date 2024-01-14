@@ -283,7 +283,9 @@ type Bot struct {
 	queries         *sqlc.Queries
 	superAdmins     []discord.UserID
 	useEmbeds       bool
-	userId          discord.UserID
+	guildID         discord.GuildID
+	channelID       discord.ChannelID
+	userID          discord.UserID
 	c               chan model.ChangedServerStatus
 	pollingInterval time.Duration
 	conflictMap     *xsync.MapOf[model.MessageTarget, Backoff]
@@ -297,6 +299,7 @@ func New(
 	db *db.DB,
 	superAdmins []discord.UserID,
 	guildID discord.GuildID,
+	channelID discord.ChannelID,
 	pollingInterval time.Duration,
 	legacyMessageFormat bool,
 ) (*Bot, error) {
@@ -317,6 +320,8 @@ func New(
 		c:               make(chan model.ChangedServerStatus, 1024),
 		conflictMap:     xsync.NewMapOf[model.MessageTarget, Backoff](),
 		pollingInterval: pollingInterval,
+		guildID:         guildID,
+		channelID:       channelID,
 	}
 
 	s.AddIntents(
@@ -328,7 +333,7 @@ func New(
 		if err != nil {
 			log.Fatalf("failed to get bot user: %v", err)
 		}
-		bot.userId = me.ID
+		bot.userID = me.ID
 
 		log.Println("connected to the gateway as", me.Tag())
 		src, dst, err := bot.updateServers()
@@ -382,7 +387,7 @@ func New(
 
 	s.AddInteractionHandler(r)
 
-	_, err = s.BulkOverwriteGuildCommands(app.ID, guildID, ownerCommandList)
+	_, err = s.BulkOverwriteGuildCommands(app.ID, bot.guildID, ownerCommandList)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +412,13 @@ func (b *Bot) Close() error {
 	)
 }
 
-func (b *Bot) IsSuperAdmin(userID discord.UserID) bool {
+func (b *Bot) IsSuperAdmin(data cmdroute.CommandData) bool {
+	// must be infigured guild and channel
+	if !(data.Event.GuildID == b.guildID && data.Event.ChannelID == b.channelID) {
+		return false
+	}
+
+	userID := data.Event.SenderID()
 	for _, admin := range b.superAdmins {
 		if admin == userID {
 			return true

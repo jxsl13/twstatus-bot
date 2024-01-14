@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-      push-store-image:
+      publish-container-image:
         runs-on: ubuntu-latest
         steps:
           - name: 'Checkout GitHub Action'

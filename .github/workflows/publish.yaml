@@ -17,6 +17,7 @@ on:
       - 'master'
       - 'main'
     paths:
+      - ".github/workflows/**"
       - "**.go"
       - "**.sql"
   pull_request:
@@ -24,6 +25,7 @@ on:
       - 'master'
       - 'main'
     paths:
+      - ".github/workflows/**"
       - "**.go"
       - "**.sql"
 

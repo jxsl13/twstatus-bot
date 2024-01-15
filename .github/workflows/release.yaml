@@ -54,6 +54,9 @@ jobs:
         GOARCH: ${{ matrix.GOARCH }}
         CGO_ENABLED: "0"
       steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+
         - name: Construct env variables
           if: ${{ matrix.GOOS != 'windows' }}
           run: echo "RELEASE_EXECUTABLE=${{ github.event.repository.name }}.${{ env.GOOS }}.${{ env.GOARCH }}" >> $GITHUB_ENV

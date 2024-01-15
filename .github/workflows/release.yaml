@@ -57,6 +57,11 @@ jobs:
         - name: Checkout
           uses: actions/checkout@v4
 
+        - name: Install Go
+          uses: actions/setup-go@v5
+          with:
+            go-version: stable
+
         - name: Construct env variables
           if: ${{ matrix.GOOS != 'windows' }}
           run: echo "RELEASE_EXECUTABLE=${{ github.event.repository.name }}.${{ env.GOOS }}.${{ env.GOARCH }}" >> $GITHUB_ENV

@@ -53,11 +53,6 @@ func InitDatabase(ctx context.Context, db *db.DB, wal bool) (err error) {
 PRAGMA strict = ON;
 PRAGMA foreign_keys = ON;
 `
-	if wal {
-		stmt += `
-PRAGMA journal_mode = WAL;
-`
-	}
 
 	stmt += `
 CREATE TABLE IF NOT EXISTS guilds (

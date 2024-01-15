@@ -7,6 +7,9 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"time"
 )
 
 const deleteActiveServerClients = `-- name: DeleteActiveServerClients :exec
@@ -31,7 +34,7 @@ const existsServer = `-- name: ExistsServer :many
 SELECT
 	address
 FROM active_servers
-WHERE address = ?
+WHERE address = $1
 LIMIT 1
 `
 
@@ -67,17 +70,17 @@ INSERT INTO active_server_clients (
 	score,
 	is_player,
 	team
-) VALUES (?,?,?,?,?,?,?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type InsertActiveServerClientsParams struct {
 	Address   string
 	Name      string
 	Clan      string
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
-	Team      *int64
+	CountryID int16
+	Score     int32
+	IsPlayer  bool
+	Team      sql.NullInt16
 }
 
 func (q *Queries) InsertActiveServerClients(ctx context.Context, arg InsertActiveServerClientsParams) error {
@@ -108,23 +111,23 @@ INSERT INTO active_servers (
 	max_clients,
 	max_players,
 	score_kind
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type InsertActiveServersParams struct {
-	Timestamp    int64
+	Timestamp    time.Time
 	Address      string
-	Protocols    string
+	Protocols    json.RawMessage
 	Name         string
 	Gametype     string
-	Passworded   int64
+	Passworded   bool
 	Map          string
-	MapSha256sum *string
-	MapSize      *int64
+	MapSha256sum sql.NullString
+	MapSize      sql.NullInt32
 	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	MaxClients   int16
+	MaxPlayers   int16
+	ScoreKind    interface{}
 }
 
 func (q *Queries) InsertActiveServers(ctx context.Context, arg InsertActiveServersParams) error {
@@ -158,7 +161,7 @@ SELECT
 	tsc.is_player,
 	tsc.team,
 	f.abbr,
-	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+	(CASE WHEN fm.emoji != NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_server_clients tsc ON t.address = tsc.address
@@ -168,11 +171,11 @@ LEFT JOIN flag_mappings fm ON
 		t.channel_id = fm.channel_id AND
 		tsc.country_id = fm.flag_id
 	)
-WHERE c.running = 1
+WHERE c.running = TRUE
 ORDER BY
     c.guild_id ASC,
     c.channel_id ASC,
-    t._rowid_,
+    t.id ASC,
     score DESC,
     tsc.name ASC
 `
@@ -183,10 +186,10 @@ type ListTrackedServerClientsRow struct {
 	MessageID int64
 	Name      string
 	Clan      string
-	CountryID int64
+	CountryID int16
 	Score     interface{}
-	IsPlayer  int64
-	Team      *int64
+	IsPlayer  bool
+	Team      sql.NullInt16
 	Abbr      string
 	FlagEmoji interface{}
 }
@@ -247,7 +250,7 @@ SELECT
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_servers ts ON t.address = ts.address
-WHERE c.running = 1
+WHERE c.running = TRUE
 ORDER BY c.guild_id ASC, c.channel_id ASC
 `
 
@@ -255,19 +258,19 @@ type ListTrackedServersRow struct {
 	GuildID      int64
 	ChannelID    int64
 	MessageID    int64
-	Timestamp    int64
+	Timestamp    time.Time
 	Address      string
-	Protocols    string
+	Protocols    json.RawMessage
 	Name         string
 	Gametype     string
-	Passworded   int64
+	Passworded   bool
 	Map          string
-	MapSha256sum *string
-	MapSize      *int64
+	MapSha256sum sql.NullString
+	MapSize      sql.NullInt32
 	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	MaxClients   int16
+	MaxPlayers   int16
+	ScoreKind    interface{}
 }
 
 func (q *Queries) ListTrackedServers(ctx context.Context) ([]ListTrackedServersRow, error) {

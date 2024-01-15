@@ -11,13 +11,13 @@ import (
 
 const addGuildChannel = `-- name: AddGuildChannel :exec
 INSERT INTO channels (channel_id, guild_id, running)
-VALUES (?, ?, ?)
+VALUES ($1, $2, $3)
 `
 
 type AddGuildChannelParams struct {
 	ChannelID int64
 	GuildID   int64
-	Running   int64
+	Running   bool
 }
 
 func (q *Queries) AddGuildChannel(ctx context.Context, arg AddGuildChannelParams) error {
@@ -28,8 +28,8 @@ func (q *Queries) AddGuildChannel(ctx context.Context, arg AddGuildChannelParams
 const getChannel = `-- name: GetChannel :many
 SELECT running
 FROM channels
-WHERE guild_id = ?
-AND channel_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
 LIMIT 1
 `
 
@@ -38,15 +38,15 @@ type GetChannelParams struct {
 	ChannelID int64
 }
 
-func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) ([]int64, error) {
+func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) ([]bool, error) {
 	rows, err := q.query(ctx, q.getChannelStmt, getChannel, arg.GuildID, arg.ChannelID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []int64{}
+	items := []bool{}
 	for rows.Next() {
-		var running int64
+		var running bool
 		if err := rows.Scan(&running); err != nil {
 			return nil, err
 		}
@@ -64,13 +64,13 @@ func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) ([]int64
 const listGuildChannels = `-- name: ListGuildChannels :many
 SELECT channel_id, running
 FROM channels
-WHERE guild_id = ?
+WHERE guild_id = $1
 ORDER BY channel_id ASC
 `
 
 type ListGuildChannelsRow struct {
 	ChannelID int64
-	Running   int64
+	Running   bool
 }
 
 func (q *Queries) ListGuildChannels(ctx context.Context, guildID int64) ([]ListGuildChannelsRow, error) {
@@ -98,8 +98,8 @@ func (q *Queries) ListGuildChannels(ctx context.Context, guildID int64) ([]ListG
 
 const removeGuildChannel = `-- name: RemoveGuildChannel :exec
 DELETE FROM channels
-WHERE guild_id = ?
-AND channel_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
 `
 
 type RemoveGuildChannelParams struct {
@@ -114,9 +114,9 @@ func (q *Queries) RemoveGuildChannel(ctx context.Context, arg RemoveGuildChannel
 
 const startChannel = `-- name: StartChannel :exec
 UPDATE channels
-SET running = 1
-WHERE guild_id = ?
-AND channel_id = ?
+SET running = TRUE
+WHERE guild_id = $1
+AND channel_id = $2
 `
 
 type StartChannelParams struct {
@@ -131,9 +131,9 @@ func (q *Queries) StartChannel(ctx context.Context, arg StartChannelParams) erro
 
 const stopChannel = `-- name: StopChannel :exec
 UPDATE channels
-SET running = 0
-WHERE guild_id = ?
-AND channel_id = ?
+SET running = FALSE
+WHERE guild_id = $1
+AND channel_id = $2
 `
 
 type StopChannelParams struct {

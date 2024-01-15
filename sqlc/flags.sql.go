@@ -10,12 +10,16 @@ import (
 )
 
 const addFlag = `-- name: AddFlag :exec
-REPLACE INTO flags (flag_id, abbr, emoji)
-VALUES (?, ?, ?)
+INSERT INTO flags (flag_id, abbr, emoji)
+VALUES ($1, $2, $3)
+ON CONFLICT (flag_id) DO UPDATE
+SET
+	abbr = $2,
+    emoji = $3
 `
 
 type AddFlagParams struct {
-	FlagID int64
+	FlagID int16
 	Abbr   string
 	Emoji  string
 }
@@ -28,11 +32,11 @@ func (q *Queries) AddFlag(ctx context.Context, arg AddFlagParams) error {
 const getFlag = `-- name: GetFlag :many
 SELECT flag_id, abbr, emoji
 FROM flags
-WHERE flag_id = ?
+WHERE flag_id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetFlag(ctx context.Context, flagID int64) ([]Flag, error) {
+func (q *Queries) GetFlag(ctx context.Context, flagID int16) ([]Flag, error) {
 	rows, err := q.query(ctx, q.getFlagStmt, getFlag, flagID)
 	if err != nil {
 		return nil, err
@@ -58,7 +62,7 @@ func (q *Queries) GetFlag(ctx context.Context, flagID int64) ([]Flag, error) {
 const getFlagByAbbr = `-- name: GetFlagByAbbr :many
 SELECT flag_id, abbr, emoji
 FROM flags
-WHERE abbr = ?
+WHERE abbr = $1
 LIMIT 1
 `
 

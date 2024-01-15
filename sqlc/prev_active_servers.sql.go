@@ -7,6 +7,9 @@ package sqlc
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"time"
 )
 
 const addPrevActiveServer = `-- name: AddPrevActiveServer :exec
@@ -27,26 +30,26 @@ INSERT INTO prev_active_servers (
 	max_clients,
 	max_players,
 	score_kind
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 `
 
 type AddPrevActiveServerParams struct {
 	MessageID    int64
 	GuildID      int64
 	ChannelID    int64
-	Timestamp    int64
+	Timestamp    time.Time
 	Address      string
-	Protocols    string
+	Protocols    json.RawMessage
 	Name         string
 	Gametype     string
-	Passworded   int64
+	Passworded   bool
 	Map          string
-	MapSha256sum *string
-	MapSize      *int64
+	MapSha256sum sql.NullString
+	MapSize      sql.NullInt32
 	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	MaxClients   int16
+	MaxPlayers   int16
+	ScoreKind    interface{}
 }
 
 func (q *Queries) AddPrevActiveServer(ctx context.Context, arg AddPrevActiveServerParams) error {
@@ -84,7 +87,7 @@ INSERT INTO prev_active_server_clients (
 	is_player,
 	flag_abbr,
 	flag_emoji
-) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 `
 
 type AddPrevActiveServerClientParams struct {
@@ -93,10 +96,10 @@ type AddPrevActiveServerClientParams struct {
 	ChannelID int64
 	Name      string
 	Clan      string
-	Team      *int64
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
+	Team      sql.NullInt16
+	CountryID int16
+	Score     int32
+	IsPlayer  bool
 	FlagAbbr  string
 	FlagEmoji string
 }
@@ -132,7 +135,7 @@ SELECT
 	flag_abbr,
 	flag_emoji
 FROM prev_active_server_clients
-WHERE message_id = ?
+WHERE message_id = $1
 ORDER BY id ASC
 LIMIT 1
 `
@@ -143,10 +146,10 @@ type GetPrevActiveServerClientsRow struct {
 	ChannelID int64
 	Name      string
 	Clan      string
-	Team      *int64
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
+	Team      sql.NullInt16
+	CountryID int16
+	Score     int32
+	IsPlayer  bool
 	FlagAbbr  string
 	FlagEmoji string
 }
@@ -250,7 +253,7 @@ func (q *Queries) ListPrevActiveServers(ctx context.Context) ([]PrevActiveServer
 
 const removePrevActiveServer = `-- name: RemovePrevActiveServer :exec
 DELETE FROM prev_active_servers
-WHERE message_id = ?
+WHERE message_id = $1
 `
 
 func (q *Queries) RemovePrevActiveServer(ctx context.Context, messageID int64) error {
@@ -260,7 +263,7 @@ func (q *Queries) RemovePrevActiveServer(ctx context.Context, messageID int64) e
 
 const removePrevActiveServerClient = `-- name: RemovePrevActiveServerClient :exec
 DELETE FROM prev_active_server_clients
-WHERE message_id = ?
+WHERE message_id = $1
 `
 
 func (q *Queries) RemovePrevActiveServerClient(ctx context.Context, messageID int64) error {

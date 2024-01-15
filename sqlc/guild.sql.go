@@ -13,7 +13,7 @@ const addGuild = `-- name: AddGuild :exec
 INSERT INTO guilds (
     guild_id,
     description
-) VALUES (?, ?)
+) VALUES ($1, $2)
 `
 
 type AddGuildParams struct {
@@ -29,7 +29,7 @@ func (q *Queries) AddGuild(ctx context.Context, arg AddGuildParams) error {
 const getGuild = `-- name: GetGuild :many
 SELECT guild_id, description
 FROM guilds
-WHERE guild_id = ?
+WHERE guild_id = $1
 LIMIT 1
 `
 
@@ -86,7 +86,7 @@ func (q *Queries) ListGuilds(ctx context.Context) ([]Guild, error) {
 }
 
 const removeGuild = `-- name: RemoveGuild :exec
-DELETE FROM guilds WHERE guild_id = ?
+DELETE FROM guilds WHERE guild_id = $1
 `
 
 func (q *Queries) RemoveGuild(ctx context.Context, guildID int64) error {

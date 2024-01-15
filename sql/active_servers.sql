@@ -19,7 +19,7 @@ SELECT
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_servers ts ON t.address = ts.address
-WHERE c.running = 1
+WHERE c.running = TRUE
 ORDER BY c.guild_id ASC, c.channel_id ASC;
 
 
@@ -41,7 +41,7 @@ INSERT INTO active_servers (
 	max_clients,
 	max_players,
 	score_kind
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);
 
 
 -- name: ListTrackedServerClients :many
@@ -56,7 +56,7 @@ SELECT
 	tsc.is_player,
 	tsc.team,
 	f.abbr,
-	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+	(CASE WHEN fm.emoji != NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_server_clients tsc ON t.address = tsc.address
@@ -66,11 +66,11 @@ LEFT JOIN flag_mappings fm ON
 		t.channel_id = fm.channel_id AND
 		tsc.country_id = fm.flag_id
 	)
-WHERE c.running = 1
+WHERE c.running = TRUE
 ORDER BY
     c.guild_id ASC,
     c.channel_id ASC,
-    t._rowid_,
+    t.id ASC,
     score DESC,
     tsc.name ASC;
 
@@ -88,14 +88,14 @@ INSERT INTO active_server_clients (
 	score,
 	is_player,
 	team
-) VALUES (?,?,?,?,?,?,?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 
 -- name: ExistsServer :many
 SELECT
 	address
 FROM active_servers
-WHERE address = ?
+WHERE address = $1
 LIMIT 1;
 
 

@@ -4,22 +4,26 @@
 
 package sqlc
 
-import ()
+import (
+	"database/sql"
+	"encoding/json"
+	"time"
+)
 
 type ActiveServer struct {
-	Timestamp    int64
+	Timestamp    time.Time
 	Address      string
-	Protocols    string
+	Protocols    json.RawMessage
 	Name         string
 	Gametype     string
-	Passworded   int64
+	Passworded   bool
 	Map          string
-	MapSha256sum *string
-	MapSize      *int64
+	MapSha256sum sql.NullString
+	MapSize      sql.NullInt32
 	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	MaxClients   int16
+	MaxPlayers   int16
+	ScoreKind    interface{}
 }
 
 type ActiveServerClient struct {
@@ -28,20 +32,20 @@ type ActiveServerClient struct {
 	Address   string
 	Name      string
 	Clan      string
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
-	Team      *int64
+	CountryID int16
+	Score     int32
+	IsPlayer  bool
+	Team      sql.NullInt16
 }
 
 type Channel struct {
 	ChannelID int64
 	GuildID   int64
-	Running   int64
+	Running   bool
 }
 
 type Flag struct {
-	FlagID int64
+	FlagID int16
 	Abbr   string
 	Emoji  string
 }
@@ -49,7 +53,7 @@ type Flag struct {
 type FlagMapping struct {
 	GuildID   int64
 	ChannelID int64
-	FlagID    int64
+	FlagID    int16
 	Emoji     string
 }
 
@@ -63,26 +67,26 @@ type PlayerCountNotification struct {
 	ChannelID int64
 	MessageID int64
 	UserID    int64
-	Threshold int64
+	Threshold int16
 }
 
 type PrevActiveServer struct {
 	MessageID    int64
 	GuildID      int64
 	ChannelID    int64
-	Timestamp    int64
+	Timestamp    time.Time
 	Address      string
-	Protocols    string
+	Protocols    json.RawMessage
 	Name         string
 	Gametype     string
-	Passworded   int64
+	Passworded   bool
 	Map          string
-	MapSha256sum *string
-	MapSize      *int64
+	MapSha256sum sql.NullString
+	MapSize      sql.NullInt32
 	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	MaxClients   int16
+	MaxPlayers   int16
+	ScoreKind    interface{}
 }
 
 type PrevActiveServerClient struct {
@@ -92,10 +96,10 @@ type PrevActiveServerClient struct {
 	ChannelID int64
 	Name      string
 	Clan      string
-	Team      *int64
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
+	CountryID int16
+	Score     int32
+	IsPlayer  bool
+	Team      sql.NullInt16
 	FlagAbbr  string
 	FlagEmoji string
 }
@@ -108,6 +112,7 @@ type PrevMessageMention struct {
 }
 
 type Tracking struct {
+	ID        sql.NullInt64
 	MessageID int64
 	GuildID   int64
 	ChannelID int64

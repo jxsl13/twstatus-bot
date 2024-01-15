@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -15,9 +14,6 @@ type Config struct {
 	DiscordSuperAdmins string `koanf:"super.admins" short:"a" description:"Comma separated list of Discord User IDs that are super admins."`
 	SuperAdmins        []discord.UserID
 
-	DatabaseDir string `koanf:"db.dir" short:"d" description:"Database directory"`
-	WAL         bool   `koanf:"db.wal" short:"w" description:"Enable Write-Ahead-Log for SQLite"`
-
 	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Bot Owner Guild ID"`
 	GuildID       discord.GuildID
 
@@ -26,6 +22,13 @@ type Config struct {
 
 	PollInterval        time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`
 	LegacyMessageFormat bool          `koanf:"legacy.format" short:"l" description:"Use legacy message format. If disabled, rich text embeddings will be used."`
+
+	PostgresHostname string `koanf:"postgres.hostname" short:"H" description:"Postgres host"`
+	PostgresPort     int    `koanf:"postgres.port" short:"P" description:"Postgres port"`
+	PostgresUser     string `koanf:"postgres.user" short:"U" description:"Postgres user"`
+	PostgresPassword string `koanf:"postgres.password" short:"W" description:"Postgres password"`
+	PostgresDatabase string `koanf:"postgres.database" short:"D" description:"Postgres database"`
+	PostgresSSL      bool   `koanf:"postgres.ssl" short:"S" description:"Postgres ssl"`
 }
 
 func (c *Config) Validate() error {
@@ -59,15 +62,6 @@ func (c *Config) Validate() error {
 			}
 			c.SuperAdmins = append(c.SuperAdmins, discord.UserID(userID))
 		}
-	}
-
-	if c.DatabaseDir == "" {
-		return errors.New("database directory is required")
-	}
-
-	_, err = os.Stat(c.DatabaseDir)
-	if err != nil {
-		return err
 	}
 
 	return nil

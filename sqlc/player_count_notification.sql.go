@@ -14,9 +14,9 @@ SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
 ORDER BY user_id ASC
 `
 
@@ -28,7 +28,7 @@ type GetMessageTargetNotificationsParams struct {
 
 type GetMessageTargetNotificationsRow struct {
 	UserID    int64
-	Threshold int64
+	Threshold int16
 }
 
 func (q *Queries) GetMessageTargetNotifications(ctx context.Context, arg GetMessageTargetNotificationsParams) ([]GetMessageTargetNotificationsRow, error) {
@@ -62,10 +62,10 @@ SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
-AND user_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
+AND user_id = $4
 LIMIT 1
 `
 
@@ -156,11 +156,11 @@ func (q *Queries) ListPlayerCountNotifications(ctx context.Context) ([]PlayerCou
 
 const removePlayerCountNotification = `-- name: RemovePlayerCountNotification :exec
 DELETE FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
-AND user_id = ?
-AND threshold = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
+AND user_id = $4
+AND threshold = $5
 `
 
 type RemovePlayerCountNotificationParams struct {
@@ -168,7 +168,7 @@ type RemovePlayerCountNotificationParams struct {
 	ChannelID int64
 	MessageID int64
 	UserID    int64
-	Threshold int64
+	Threshold int16
 }
 
 func (q *Queries) RemovePlayerCountNotification(ctx context.Context, arg RemovePlayerCountNotificationParams) error {
@@ -192,13 +192,15 @@ func (q *Queries) RemovePlayerCountNotifications(ctx context.Context) error {
 }
 
 const setPlayerCountNotification = `-- name: SetPlayerCountNotification :exec
-REPLACE INTO player_count_notifications (
+INSERT INTO player_count_notifications (
 	guild_id,
 	channel_id,
 	message_id,
 	user_id,
 	threshold
-) VALUES (?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (guild_id, channel_id, message_id, user_id)
+DO UPDATE SET threshold = $5
 `
 
 type SetPlayerCountNotificationParams struct {
@@ -206,7 +208,7 @@ type SetPlayerCountNotificationParams struct {
 	ChannelID int64
 	MessageID int64
 	UserID    int64
-	Threshold int64
+	Threshold int16
 }
 
 func (q *Queries) SetPlayerCountNotification(ctx context.Context, arg SetPlayerCountNotificationParams) error {

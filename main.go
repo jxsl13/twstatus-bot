@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"time"
-
-	"log"
 
 	"github.com/jxsl13/twstatus-bot/bot"
 	"github.com/jxsl13/twstatus-bot/config"
@@ -60,9 +57,11 @@ type rootContext struct {
 func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args []string) error {
 
 	c.Config = &config.Config{
-		DatabaseDir:  filepath.Dir(os.Args[0]),
-		WAL:          false,
-		PollInterval: 16 * time.Second,
+		PostgresHostname: "postgres",
+		PostgresPort:     5432,
+		PostgresSSL:      false,
+		PostgresDatabase: "twdb",
+		PollInterval:     16 * time.Second,
 	}
 	runParser := config.RegisterFlags(c.Config, true, cmd)
 	return func(cmd *cobra.Command, args []string) error {
@@ -70,18 +69,6 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 		if err != nil {
 			return err
 		}
-
-		dbFile, err := filepath.Abs(filepath.Join(c.Config.DatabaseDir, "twstatus.db"))
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path to database file: %w", err)
-		}
-		database, err := db.New(dbFile)
-		if err != nil {
-			return err
-		}
-		log.Printf("connected to database %s", dbFile)
-
-		c.DB = database
 
 		err = dao.InitDatabase(c.Ctx, c.DB, c.Config.WAL)
 		if err != nil {

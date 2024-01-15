@@ -1,6 +1,6 @@
 version: "2"
 sql:
-  - engine: "sqlite"
+  - engine: "postgresql"
     queries: [
       "sql/active_servers.sql",
       "sql/channel.sql",
@@ -12,7 +12,9 @@ sql:
       "sql/prev_mentions.sql",
       "sql/tracking.sql"
     ]
-    schema: "sql/schema.sql"
+    schema: [
+      "migrations/001_schema.sql",
+    ]
     gen:
       go:
         package: "sqlc"

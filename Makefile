@@ -1,4 +1,4 @@
-.PHONY: build deploy redeploy start stop
+.PHONY: build deploy redeploy start stop db db-stop
 
 
 build:
@@ -15,3 +15,9 @@ redeploy:
 
 stop:
 	docker compose down
+
+db:
+	docker compose -f ./docker-compose.db.yaml up -d
+
+db-stop:
+	docker compose -f ./docker-compose.db.yaml down

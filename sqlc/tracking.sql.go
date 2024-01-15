@@ -15,7 +15,7 @@ INSERT INTO tracking (
     channel_id,
     address,
     message_id
-) VALUES (?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4)
 `
 
 type AddTrackingParams struct {
@@ -79,8 +79,8 @@ func (q *Queries) ListAllTrackings(ctx context.Context) ([]ListAllTrackingsRow, 
 const listChannelTrackings = `-- name: ListChannelTrackings :many
 SELECT guild_id, channel_id, address, message_id
 FROM tracking
-WHERE guild_id = ?
-AND channel_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
 ORDER BY message_id ASC
 `
 
@@ -126,8 +126,8 @@ func (q *Queries) ListChannelTrackings(ctx context.Context, arg ListChannelTrack
 
 const removeTrackingByMessageId = `-- name: RemoveTrackingByMessageId :exec
 DELETE FROM tracking
-WHERE guild_id = ?
-AND message_id = ?
+WHERE guild_id = $1
+AND message_id = $2
 `
 
 type RemoveTrackingByMessageIdParams struct {

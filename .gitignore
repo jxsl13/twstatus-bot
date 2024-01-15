@@ -4,3 +4,4 @@ twstatus-bot
 *.db
 *.db-journal
 __debug_bin*
+volumes/**

@@ -37,12 +37,12 @@ INSERT INTO prev_active_servers (
 	max_clients,
 	max_players,
 	score_kind
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16);
 
 
 -- name: RemovePrevActiveServer :exec
 DELETE FROM prev_active_servers
-WHERE message_id = ?;
+WHERE message_id = $1;
 
 
 -- name: GetPrevActiveServerClients :many
@@ -59,7 +59,7 @@ SELECT
 	flag_abbr,
 	flag_emoji
 FROM prev_active_server_clients
-WHERE message_id = ?
+WHERE message_id = $1
 ORDER BY id ASC
 LIMIT 1;
 
@@ -77,11 +77,11 @@ INSERT INTO prev_active_server_clients (
 	is_player,
 	flag_abbr,
 	flag_emoji
-) VALUES (?,?,?,?,?,?,?,?,?,?,?);
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);
 
 
 
 -- name: RemovePrevActiveServerClient :exec
 DELETE FROM prev_active_server_clients
-WHERE message_id = ?;
+WHERE message_id = $1;
 

@@ -46,7 +46,7 @@ jobs:
         contents: write
       strategy:
         matrix:
-          GOOS: ['linux', 'darwin', 'windows', 'netbsd', 'freebsd', 'openbsd']
+          GOOS: ['linux', 'darwin', 'windows']
           GOARCH: ['amd64', 'arm64']
       runs-on: ubuntu-latest
       env:

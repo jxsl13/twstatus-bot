@@ -7,9 +7,8 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
-	"encoding/json"
-	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addPrevActiveServer = `-- name: AddPrevActiveServer :exec
@@ -34,26 +33,26 @@ INSERT INTO prev_active_servers (
 `
 
 type AddPrevActiveServerParams struct {
-	MessageID    int64
-	GuildID      int64
-	ChannelID    int64
-	Timestamp    time.Time
-	Address      string
-	Protocols    json.RawMessage
-	Name         string
-	Gametype     string
-	Passworded   bool
-	Map          string
-	MapSha256sum sql.NullString
-	MapSize      sql.NullInt32
-	Version      string
-	MaxClients   int16
-	MaxPlayers   int16
-	ScoreKind    interface{}
+	MessageID    int64              `db:"message_id"`
+	GuildID      int64              `db:"guild_id"`
+	ChannelID    int64              `db:"channel_id"`
+	Timestamp    pgtype.Timestamptz `db:"timestamp"`
+	Address      string             `db:"address"`
+	Protocols    []byte             `db:"protocols"`
+	Name         string             `db:"name"`
+	Gametype     string             `db:"gametype"`
+	Passworded   bool               `db:"passworded"`
+	Map          string             `db:"map"`
+	MapSha256sum *string            `db:"map_sha256sum"`
+	MapSize      *int32             `db:"map_size"`
+	Version      string             `db:"version"`
+	MaxClients   int16              `db:"max_clients"`
+	MaxPlayers   int16              `db:"max_players"`
+	ScoreKind    string             `db:"score_kind"`
 }
 
 func (q *Queries) AddPrevActiveServer(ctx context.Context, arg AddPrevActiveServerParams) error {
-	_, err := q.exec(ctx, q.addPrevActiveServerStmt, addPrevActiveServer,
+	_, err := q.db.Exec(ctx, addPrevActiveServer,
 		arg.MessageID,
 		arg.GuildID,
 		arg.ChannelID,
@@ -91,21 +90,21 @@ INSERT INTO prev_active_server_clients (
 `
 
 type AddPrevActiveServerClientParams struct {
-	MessageID int64
-	GuildID   int64
-	ChannelID int64
-	Name      string
-	Clan      string
-	Team      sql.NullInt16
-	CountryID int16
-	Score     int32
-	IsPlayer  bool
-	FlagAbbr  string
-	FlagEmoji string
+	MessageID int64  `db:"message_id"`
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Name      string `db:"name"`
+	Clan      string `db:"clan"`
+	Team      *int16 `db:"team"`
+	CountryID int16  `db:"country_id"`
+	Score     int32  `db:"score"`
+	IsPlayer  bool   `db:"is_player"`
+	FlagAbbr  string `db:"flag_abbr"`
+	FlagEmoji string `db:"flag_emoji"`
 }
 
 func (q *Queries) AddPrevActiveServerClient(ctx context.Context, arg AddPrevActiveServerClientParams) error {
-	_, err := q.exec(ctx, q.addPrevActiveServerClientStmt, addPrevActiveServerClient,
+	_, err := q.db.Exec(ctx, addPrevActiveServerClient,
 		arg.MessageID,
 		arg.GuildID,
 		arg.ChannelID,
@@ -141,21 +140,21 @@ LIMIT 1
 `
 
 type GetPrevActiveServerClientsRow struct {
-	MessageID int64
-	GuildID   int64
-	ChannelID int64
-	Name      string
-	Clan      string
-	Team      sql.NullInt16
-	CountryID int16
-	Score     int32
-	IsPlayer  bool
-	FlagAbbr  string
-	FlagEmoji string
+	MessageID int64  `db:"message_id"`
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Name      string `db:"name"`
+	Clan      string `db:"clan"`
+	Team      *int16 `db:"team"`
+	CountryID int16  `db:"country_id"`
+	Score     int32  `db:"score"`
+	IsPlayer  bool   `db:"is_player"`
+	FlagAbbr  string `db:"flag_abbr"`
+	FlagEmoji string `db:"flag_emoji"`
 }
 
 func (q *Queries) GetPrevActiveServerClients(ctx context.Context, messageID int64) ([]GetPrevActiveServerClientsRow, error) {
-	rows, err := q.query(ctx, q.getPrevActiveServerClientsStmt, getPrevActiveServerClients, messageID)
+	rows, err := q.db.Query(ctx, getPrevActiveServerClients, messageID)
 	if err != nil {
 		return nil, err
 	}
@@ -179,9 +178,6 @@ func (q *Queries) GetPrevActiveServerClients(ctx context.Context, messageID int6
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -212,7 +208,7 @@ ORDER BY guild_id ASC, channel_id ASC, message_id ASC
 `
 
 func (q *Queries) ListPrevActiveServers(ctx context.Context) ([]PrevActiveServer, error) {
-	rows, err := q.query(ctx, q.listPrevActiveServersStmt, listPrevActiveServers)
+	rows, err := q.db.Query(ctx, listPrevActiveServers)
 	if err != nil {
 		return nil, err
 	}
@@ -242,9 +238,6 @@ func (q *Queries) ListPrevActiveServers(ctx context.Context) ([]PrevActiveServer
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -257,7 +250,7 @@ WHERE message_id = $1
 `
 
 func (q *Queries) RemovePrevActiveServer(ctx context.Context, messageID int64) error {
-	_, err := q.exec(ctx, q.removePrevActiveServerStmt, removePrevActiveServer, messageID)
+	_, err := q.db.Exec(ctx, removePrevActiveServer, messageID)
 	return err
 }
 
@@ -267,6 +260,6 @@ WHERE message_id = $1
 `
 
 func (q *Queries) RemovePrevActiveServerClient(ctx context.Context, messageID int64) error {
-	_, err := q.exec(ctx, q.removePrevActiveServerClientStmt, removePrevActiveServerClient, messageID)
+	_, err := q.db.Exec(ctx, removePrevActiveServerClient, messageID)
 	return err
 }

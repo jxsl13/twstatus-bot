@@ -70,7 +70,7 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 			return err
 		}
 
-		err = dao.InitDatabase(c.Ctx, c.DB, c.Config.WAL)
+		err = dao.InitDatabase(c.Ctx, c.DB)
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}

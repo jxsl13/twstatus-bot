@@ -3,9 +3,9 @@ package dao
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jxsl13/twstatus-bot/model"
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
@@ -42,7 +42,7 @@ func prevActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.
 				MessageID: discord.MessageID(s.MessageID),
 			}
 			server = model.ServerStatus{
-
+				Timestamp:    s.Timestamp.Time,
 				Address:      s.Address,
 				Name:         s.Name,
 				Gametype:     s.Gametype,
@@ -57,11 +57,10 @@ func prevActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.
 			}
 		)
 
-		err = server.ProtocolsFromJSON([]byte(s.Protocols))
+		err = server.ProtocolsFromJSON(s.Protocols)
 		if err != nil {
 			return nil, err
 		}
-		server.Timestamp = time.UnixMilli(s.Timestamp)
 		servers[target] = server
 	}
 
@@ -103,7 +102,7 @@ func prevActiveClients(
 				Team:      row.Team,
 				Country:   row.CountryID,
 				Score:     row.Score,
-				IsPlayer:  row.IsPlayer != 0,
+				IsPlayer:  row.IsPlayer,
 				FlagAbbr:  row.FlagAbbr,
 				FlagEmoji: row.FlagEmoji,
 			}
@@ -125,9 +124,9 @@ func addPrevActiveServers(
 			MessageID:    int64(t.MessageID),
 			GuildID:      int64(t.GuildID),
 			ChannelID:    int64(t.ChannelID),
-			Timestamp:    s.Timestamp.UnixMilli(),
+			Timestamp:    pgtype.Timestamptz{Time: s.Timestamp},
 			Address:      s.Address,
-			Protocols:    string(s.ProtocolsJSON()),
+			Protocols:    s.ProtocolsJSON(),
 			Name:         s.Name,
 			Gametype:     s.Gametype,
 			Passworded:   s.Passworded,
@@ -174,7 +173,7 @@ func addPrevActiveClients(ctx context.Context, q *sqlc.Queries, servers map[mode
 				Team:      client.Team,
 				CountryID: client.Country,
 				Score:     client.Score,
-				IsPlayer:  client.IsPlayerInt64(),
+				IsPlayer:  client.IsPlayer,
 				FlagAbbr:  client.FlagAbbr,
 				FlagEmoji: client.FlagEmoji,
 			})

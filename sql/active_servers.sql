@@ -52,11 +52,11 @@ SELECT
 	tsc.name,
 	tsc.clan,
 	tsc.country_id,
-	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END) as score,
+	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END)::INTEGER as score,
 	tsc.is_player,
 	tsc.team,
 	f.abbr,
-	(CASE WHEN fm.emoji != NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+	COALESCE(fm.emoji, f.emoji)::VARCHAR(64) as flag_emoji
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_server_clients tsc ON t.address = tsc.address

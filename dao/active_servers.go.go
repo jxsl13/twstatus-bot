@@ -2,9 +2,9 @@ package dao
 
 import (
 	"context"
-	"time"
 
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jxsl13/twstatus-bot/model"
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
@@ -119,7 +119,7 @@ func activeServers(ctx context.Context, q *sqlc.Queries) (servers map[model.Mess
 			MessageID: discord.MessageID(row.MessageID),
 		}
 		server := model.ServerStatus{
-			Timestamp:    time.UnixMilli(row.Timestamp),
+			Timestamp:    row.Timestamp.Time,
 			Address:      row.Address,
 			Name:         row.Name,
 			Gametype:     row.Gametype,
@@ -166,11 +166,11 @@ func activeClients(ctx context.Context, q *sqlc.Queries, servers map[model.Messa
 				Name:      row.Name,
 				Clan:      row.Clan,
 				Country:   row.CountryID,
-				Score:     row.Score.(int64), // TODO: fix this
-				IsPlayer:  row.IsPlayer != 0,
+				Score:     row.Score, // TODO: fix this
+				IsPlayer:  row.IsPlayer,
 				Team:      row.Team,
 				FlagAbbr:  row.Abbr,
-				FlagEmoji: row.FlagEmoji.(string), // TODO: fix this
+				FlagEmoji: row.FlagEmoji, // TODO: fix this
 			}
 		)
 
@@ -188,7 +188,7 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 		return err
 	}
 
-	knownFlags := make(map[int64]bool)
+	knownFlags := make(map[int16]bool)
 	for _, flag := range flags {
 		knownFlags[flag.FlagID] = true
 	}
@@ -205,9 +205,9 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 
 	for _, server := range servers {
 		err = q.InsertActiveServers(ctx, sqlc.InsertActiveServersParams{
-			Timestamp:    server.Timestamp.UnixMilli(),
+			Timestamp:    pgtype.Timestamptz{Time: server.Timestamp},
 			Address:      server.Address,
-			Protocols:    string(server.ProtocolsJSON()),
+			Protocols:    server.ProtocolsJSON(),
 			Name:         server.Name,
 			Gametype:     server.Gametype,
 			Passworded:   server.Passworded,
@@ -240,7 +240,7 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 				Clan:      client.Clan,
 				CountryID: client.Country,
 				Score:     client.Score,
-				IsPlayer:  client.IsPlayerInt64(),
+				IsPlayer:  client.IsPlayer,
 				Team:      client.Team,
 			})
 

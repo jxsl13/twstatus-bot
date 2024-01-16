@@ -23,14 +23,14 @@ SET
 `
 
 type AddFlagMappingParams struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int16
-	Emoji     string
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	FlagID    int16  `db:"flag_id"`
+	Emoji     string `db:"emoji"`
 }
 
 func (q *Queries) AddFlagMapping(ctx context.Context, arg AddFlagMappingParams) error {
-	_, err := q.exec(ctx, q.addFlagMappingStmt, addFlagMapping,
+	_, err := q.db.Exec(ctx, addFlagMapping,
 		arg.GuildID,
 		arg.ChannelID,
 		arg.FlagID,
@@ -53,19 +53,19 @@ LIMIT 1
 `
 
 type GetFlagMappingParams struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int16
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	FlagID    int16 `db:"flag_id"`
 }
 
 type GetFlagMappingRow struct {
-	FlagID int16
-	Emoji  string
-	Abbr   string
+	FlagID int16  `db:"flag_id"`
+	Emoji  string `db:"emoji"`
+	Abbr   string `db:"abbr"`
 }
 
 func (q *Queries) GetFlagMapping(ctx context.Context, arg GetFlagMappingParams) ([]GetFlagMappingRow, error) {
-	rows, err := q.query(ctx, q.getFlagMappingStmt, getFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
+	rows, err := q.db.Query(ctx, getFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,9 +77,6 @@ func (q *Queries) GetFlagMapping(ctx context.Context, arg GetFlagMappingParams) 
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -100,18 +97,18 @@ ORDER BY f.abbr ASC
 `
 
 type ListFlagMappingsParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 type ListFlagMappingsRow struct {
-	FlagID int16
-	Emoji  string
-	Abbr   string
+	FlagID int16  `db:"flag_id"`
+	Emoji  string `db:"emoji"`
+	Abbr   string `db:"abbr"`
 }
 
 func (q *Queries) ListFlagMappings(ctx context.Context, arg ListFlagMappingsParams) ([]ListFlagMappingsRow, error) {
-	rows, err := q.query(ctx, q.listFlagMappingsStmt, listFlagMappings, arg.GuildID, arg.ChannelID)
+	rows, err := q.db.Query(ctx, listFlagMappings, arg.GuildID, arg.ChannelID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,9 +120,6 @@ func (q *Queries) ListFlagMappings(ctx context.Context, arg ListFlagMappingsPara
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -141,12 +135,12 @@ AND flag_id = $3
 `
 
 type RemoveFlagMappingParams struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int16
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	FlagID    int16 `db:"flag_id"`
 }
 
 func (q *Queries) RemoveFlagMapping(ctx context.Context, arg RemoveFlagMappingParams) error {
-	_, err := q.exec(ctx, q.removeFlagMappingStmt, removeFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
+	_, err := q.db.Exec(ctx, removeFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
 	return err
 }

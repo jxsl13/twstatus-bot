@@ -20,7 +20,7 @@ ORDER BY guild_id ASC, channel_id ASC, message_id ASC, user_id ASC
 `
 
 func (q *Queries) ListPreviousMessageMentions(ctx context.Context) ([]PrevMessageMention, error) {
-	rows, err := q.query(ctx, q.listPreviousMessageMentionsStmt, listPreviousMessageMentions)
+	rows, err := q.db.Query(ctx, listPreviousMessageMentions)
 	if err != nil {
 		return nil, err
 	}
@@ -38,9 +38,6 @@ func (q *Queries) ListPreviousMessageMentions(ctx context.Context) ([]PrevMessag
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -55,12 +52,12 @@ AND message_id = $3
 `
 
 type RemoveMessageMentionsParams struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
 }
 
 func (q *Queries) RemoveMessageMentions(ctx context.Context, arg RemoveMessageMentionsParams) error {
-	_, err := q.exec(ctx, q.removeMessageMentionsStmt, removeMessageMentions, arg.GuildID, arg.ChannelID, arg.MessageID)
+	_, err := q.db.Exec(ctx, removeMessageMentions, arg.GuildID, arg.ChannelID, arg.MessageID)
 	return err
 }

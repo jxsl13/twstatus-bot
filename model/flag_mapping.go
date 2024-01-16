@@ -10,7 +10,7 @@ import (
 type FlagMapping struct {
 	GuildID   discord.GuildID
 	ChannelID discord.ChannelID
-	FlagID    int64
+	FlagID    int16
 	Abbr      string
 	Emoji     string
 }

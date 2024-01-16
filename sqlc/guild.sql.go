@@ -17,12 +17,12 @@ INSERT INTO guilds (
 `
 
 type AddGuildParams struct {
-	GuildID     int64
-	Description string
+	GuildID     int64  `db:"guild_id"`
+	Description string `db:"description"`
 }
 
 func (q *Queries) AddGuild(ctx context.Context, arg AddGuildParams) error {
-	_, err := q.exec(ctx, q.addGuildStmt, addGuild, arg.GuildID, arg.Description)
+	_, err := q.db.Exec(ctx, addGuild, arg.GuildID, arg.Description)
 	return err
 }
 
@@ -34,7 +34,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetGuild(ctx context.Context, guildID int64) ([]Guild, error) {
-	rows, err := q.query(ctx, q.getGuildStmt, getGuild, guildID)
+	rows, err := q.db.Query(ctx, getGuild, guildID)
 	if err != nil {
 		return nil, err
 	}
@@ -46,9 +46,6 @@ func (q *Queries) GetGuild(ctx context.Context, guildID int64) ([]Guild, error) 
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -63,7 +60,7 @@ ORDER BY guild_id ASC
 `
 
 func (q *Queries) ListGuilds(ctx context.Context) ([]Guild, error) {
-	rows, err := q.query(ctx, q.listGuildsStmt, listGuilds)
+	rows, err := q.db.Query(ctx, listGuilds)
 	if err != nil {
 		return nil, err
 	}
@@ -76,9 +73,6 @@ func (q *Queries) ListGuilds(ctx context.Context) ([]Guild, error) {
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -90,6 +84,6 @@ DELETE FROM guilds WHERE guild_id = $1
 `
 
 func (q *Queries) RemoveGuild(ctx context.Context, guildID int64) error {
-	_, err := q.exec(ctx, q.removeGuildStmt, removeGuild, guildID)
+	_, err := q.db.Exec(ctx, removeGuild, guildID)
 	return err
 }

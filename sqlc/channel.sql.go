@@ -15,13 +15,13 @@ VALUES ($1, $2, $3)
 `
 
 type AddGuildChannelParams struct {
-	ChannelID int64
-	GuildID   int64
-	Running   bool
+	ChannelID int64 `db:"channel_id"`
+	GuildID   int64 `db:"guild_id"`
+	Running   bool  `db:"running"`
 }
 
 func (q *Queries) AddGuildChannel(ctx context.Context, arg AddGuildChannelParams) error {
-	_, err := q.exec(ctx, q.addGuildChannelStmt, addGuildChannel, arg.ChannelID, arg.GuildID, arg.Running)
+	_, err := q.db.Exec(ctx, addGuildChannel, arg.ChannelID, arg.GuildID, arg.Running)
 	return err
 }
 
@@ -34,12 +34,12 @@ LIMIT 1
 `
 
 type GetChannelParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) ([]bool, error) {
-	rows, err := q.query(ctx, q.getChannelStmt, getChannel, arg.GuildID, arg.ChannelID)
+	rows, err := q.db.Query(ctx, getChannel, arg.GuildID, arg.ChannelID)
 	if err != nil {
 		return nil, err
 	}
@@ -51,9 +51,6 @@ func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) ([]bool,
 			return nil, err
 		}
 		items = append(items, running)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -69,12 +66,12 @@ ORDER BY channel_id ASC
 `
 
 type ListGuildChannelsRow struct {
-	ChannelID int64
-	Running   bool
+	ChannelID int64 `db:"channel_id"`
+	Running   bool  `db:"running"`
 }
 
 func (q *Queries) ListGuildChannels(ctx context.Context, guildID int64) ([]ListGuildChannelsRow, error) {
-	rows, err := q.query(ctx, q.listGuildChannelsStmt, listGuildChannels, guildID)
+	rows, err := q.db.Query(ctx, listGuildChannels, guildID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,9 +83,6 @@ func (q *Queries) ListGuildChannels(ctx context.Context, guildID int64) ([]ListG
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -103,12 +97,12 @@ AND channel_id = $2
 `
 
 type RemoveGuildChannelParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 func (q *Queries) RemoveGuildChannel(ctx context.Context, arg RemoveGuildChannelParams) error {
-	_, err := q.exec(ctx, q.removeGuildChannelStmt, removeGuildChannel, arg.GuildID, arg.ChannelID)
+	_, err := q.db.Exec(ctx, removeGuildChannel, arg.GuildID, arg.ChannelID)
 	return err
 }
 
@@ -120,12 +114,12 @@ AND channel_id = $2
 `
 
 type StartChannelParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 func (q *Queries) StartChannel(ctx context.Context, arg StartChannelParams) error {
-	_, err := q.exec(ctx, q.startChannelStmt, startChannel, arg.GuildID, arg.ChannelID)
+	_, err := q.db.Exec(ctx, startChannel, arg.GuildID, arg.ChannelID)
 	return err
 }
 
@@ -137,11 +131,11 @@ AND channel_id = $2
 `
 
 type StopChannelParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 func (q *Queries) StopChannel(ctx context.Context, arg StopChannelParams) error {
-	_, err := q.exec(ctx, q.stopChannelStmt, stopChannel, arg.GuildID, arg.ChannelID)
+	_, err := q.db.Exec(ctx, stopChannel, arg.GuildID, arg.ChannelID)
 	return err
 }

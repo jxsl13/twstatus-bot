@@ -47,8 +47,6 @@ func AddFlagMapping(ctx context.Context, q *sqlc.Queries, mapping model.FlagMapp
 		FlagID:    mapping.FlagID,
 		Emoji:     mapping.Emoji,
 	})
-
-	return nil
 }
 
 func GetFlagMapping(
@@ -56,7 +54,7 @@ func GetFlagMapping(
 	q *sqlc.Queries,
 	guildId discord.GuildID,
 	channelId discord.ChannelID,
-	flagId int64,
+	flagId int16,
 ) (
 	_ model.FlagMapping,
 	err error,

@@ -24,7 +24,7 @@ func ListFlags(ctx context.Context, q *sqlc.Queries) (_ []model.Flag, err error)
 	return flags, nil
 }
 
-func GetFlag(ctx context.Context, q *sqlc.Queries, flagId int64) (_ model.Flag, err error) {
+func GetFlag(ctx context.Context, q *sqlc.Queries, flagId int16) (_ model.Flag, err error) {
 	fs, err := q.GetFlag(ctx, flagId)
 	if err != nil {
 		return model.Flag{}, fmt.Errorf("failed to query flag: %w", err)

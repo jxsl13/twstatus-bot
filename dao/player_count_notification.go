@@ -139,7 +139,7 @@ func SetPlayerCountNotification(ctx context.Context, q *sqlc.Queries, n model.Pl
 		ChannelID: int64(n.ChannelID),
 		MessageID: int64(n.MessageID),
 		UserID:    int64(n.UserID),
-		Threshold: int64(n.Threshold),
+		Threshold: int16(n.Threshold),
 	})
 
 }
@@ -155,7 +155,7 @@ func RemovePlayerCountNotification(ctx context.Context, q *sqlc.Queries, n model
 			ChannelID: int64(n.ChannelID),
 			MessageID: int64(n.MessageID),
 			UserID:    int64(n.UserID),
-			Threshold: int64(n.Threshold),
+			Threshold: int16(n.Threshold),
 		})
 
 }

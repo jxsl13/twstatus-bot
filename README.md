@@ -38,17 +38,20 @@ Use `make build` or `go build .` for that purpose.
 Lastly, you can build and deploy the docker container using `docker compose` by calling `make deploy` (`make redeploy` and `make stop`).
 
 ### Usage
-Usage:
 ```
 Environment variables:
   TWBOT_DISCORD_TOKEN         Discord App token.
   TWBOT_SUPER_ADMINS          Comma separated list of Discord User IDs that are super admins.
-  TWBOT_DB_DIR                Database directory (default: ".")
-  TWBOT_DB_WAL                Enable Write-Ahead-Log for SQLite (default: "false")
   TWBOT_DISCORD_GUILD_ID      Discord Bot Owner Guild ID
   TWBOT_DISCORD_CHANNEL_ID    Discord Bot Owner ChannelID for logs
   TWBOT_POLL_INTERVAL         Poll interval for DDNet's http master server (default: "16s")
   TWBOT_LEGACY_FORMAT         Use legacy message format. If disabled, rich text embeddings will be used. (default: "false")
+  TWBOT_POSTGRES_HOSTNAME     Postgres host (default: "postgres")
+  TWBOT_POSTGRES_PORT         Postgres port (default: "5432")
+  TWBOT_POSTGRES_USER         Postgres user
+  TWBOT_POSTGRES_PASSWORD     Postgres password
+  TWBOT_POSTGRES_DATABASE     Postgres database (default: "twdb")
+  TWBOT_POSTGRES_SSLMODE      Postgres ssl mode (default: "disable")
 
 Usage:
   twstatus-bot [flags]
@@ -60,17 +63,19 @@ Available Commands:
 
 Flags:
   -c, --config string               .env config file path (or via env variable TWBOT_CONFIG)
-  -d, --db-dir string               Database directory (default ".")
-  -w, --db-wal                      Enable Write-Ahead-Log for SQLite
   -i, --discord-channel-id string   Discord Bot Owner ChannelID for logs
   -g, --discord-guild-id string     Discord Bot Owner Guild ID
   -t, --discord-token string        Discord App token.
   -h, --help                        help for twstatus-bot
   -l, --legacy-format               Use legacy message format. If disabled, rich text embeddings will be used.
   -p, --poll-interval duration      Poll interval for DDNet's http master server (default 16s)
+  -D, --postgres-database string    Postgres database (default "twdb")
+  -H, --postgres-hostname string    Postgres host (default "postgres")
+  -W, --postgres-password string    Postgres password
+  -P, --postgres-port uint16        Postgres port (default 5432)
+  -S, --postgres-sslmode string     Postgres ssl mode (default "disable")
+  -U, --postgres-user string        Postgres user
   -a, --super-admins string         Comma separated list of Discord User IDs that are super admins.
-
-Use "twstatus-bot [command] --help" for more information about a command.
 ```
 
 Docker usage:
@@ -82,9 +87,21 @@ TWBOT_SUPER_ADMINS="134948708277026816"
 TWBOT_DISCORD_GUILD_ID="1196213160911311018"
 TWBOT_DISCORD_CHANNEL_ID="1196213253102129343"
 
+# mandatory database parameters
+TWBOT_POSTGRES_HOSTNAME="postgres"  # you might want to change this to 'localhost' if you run outside of a container.
+TWBOT_POSTGRES_USER="twbot"
+TWBOT_POSTGRES_PASSWORD="database_password"
+
 # optional parameters
 # format: 1h30m5s
 TWBOT_POLL_INTERVAL="16s"
+
+# optional database parameters
+TWBOT_POSTGRES_PORT="5432"
+TWBOT_POSTGRES_DATABASE="twdb"
+TWBOT_POSTGRES_SSLMODE="disable"
+
+
 ```
 
 and then execute (on Linux):

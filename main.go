@@ -3,32 +3,34 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"time"
-
-	"log"
 
 	"github.com/jxsl13/twstatus-bot/bot"
 	"github.com/jxsl13/twstatus-bot/config"
-	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/db"
+	"github.com/jxsl13/twstatus-bot/migrations"
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	err := NewRootCmd().Execute()
+
+	err := NewRootCmd(migrations.FS).Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(migrationsFs fs.FS) *cobra.Command {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 
-	rootContext := rootContext{Ctx: ctx}
+	rootContext := rootContext{
+		Ctx:          ctx,
+		MigrationsFS: migrationsFs,
+	}
 
 	// cmd represents the run command
 	cmd := &cobra.Command{
@@ -37,9 +39,10 @@ func NewRootCmd() *cobra.Command {
 		RunE:  rootContext.RunE,
 		Args:  cobra.ExactArgs(0),
 		PostRunE: func(cmd *cobra.Command, args []string) error {
+			rootContext.DB.Close()
 
 			cancel()
-			return rootContext.DB.Close()
+			return nil
 		},
 	}
 
@@ -52,7 +55,10 @@ func NewRootCmd() *cobra.Command {
 }
 
 type rootContext struct {
-	Ctx    context.Context
+	Ctx          context.Context
+	MigrationsFS fs.FS
+
+	// set in PreRunE
 	Config *config.Config
 	DB     *db.DB
 }
@@ -60,9 +66,11 @@ type rootContext struct {
 func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args []string) error {
 
 	c.Config = &config.Config{
-		DatabaseDir:  filepath.Dir(os.Args[0]),
-		WAL:          false,
-		PollInterval: 16 * time.Second,
+		PostgresHostname: "postgres",
+		PostgresPort:     5432,
+		PostgresSSLMode:  db.SSLModeDisable,
+		PostgresDatabase: "twdb",
+		PollInterval:     16 * time.Second,
 	}
 	runParser := config.RegisterFlags(c.Config, true, cmd)
 	return func(cmd *cobra.Command, args []string) error {
@@ -71,22 +79,20 @@ func (c *rootContext) PreRunE(cmd *cobra.Command) func(cmd *cobra.Command, args 
 			return err
 		}
 
-		dbFile, err := filepath.Abs(filepath.Join(c.Config.DatabaseDir, "twstatus.db"))
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path to database file: %w", err)
-		}
-		database, err := db.New(dbFile)
-		if err != nil {
-			return err
-		}
-		log.Printf("connected to database %s", dbFile)
-
-		c.DB = database
-
-		err = dao.InitDatabase(c.Ctx, c.DB, c.Config.WAL)
+		db, err := db.New(
+			c.Ctx,
+			c.Config.PostgresHostname,
+			c.Config.PostgresPort,
+			c.Config.PostgresDatabase,
+			c.Config.PostgresUser,
+			c.Config.PostgresPassword,
+			db.WithMigrationsFs(c.MigrationsFS),
+			db.WithSSL(c.Config.PostgresSSLMode),
+		)
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
+		c.DB = db
 
 		return nil
 	}

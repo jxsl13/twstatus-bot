@@ -3,22 +3,20 @@ package config
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/go-playground/validator/v10"
+	"github.com/jxsl13/twstatus-bot/db"
 )
 
 type Config struct {
-	DiscordToken       string `koanf:"discord.token" short:"t" description:"Discord App token."`
-	DiscordSuperAdmins string `koanf:"super.admins" short:"a" description:"Comma separated list of Discord User IDs that are super admins."`
+	DiscordToken       string `koanf:"discord.token" short:"t" description:"Discord App token." validate:"required"`
+	DiscordSuperAdmins string `koanf:"super.admins" short:"a" description:"Comma separated list of Discord User IDs that are super admins." validate:"required"`
 	SuperAdmins        []discord.UserID
 
-	DatabaseDir string `koanf:"db.dir" short:"d" description:"Database directory"`
-	WAL         bool   `koanf:"db.wal" short:"w" description:"Enable Write-Ahead-Log for SQLite"`
-
-	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Bot Owner Guild ID"`
+	GuildIDString string `koanf:"discord.guild.id" short:"g" description:"Discord Bot Owner Guild ID" validate:"required"`
 	GuildID       discord.GuildID
 
 	ChannelIDString string `koanf:"discord.channel.id" short:"i" description:"Discord Bot Owner ChannelID for logs"`
@@ -26,6 +24,13 @@ type Config struct {
 
 	PollInterval        time.Duration `koanf:"poll.interval" short:"p" description:"Poll interval for DDNet's http master server"`
 	LegacyMessageFormat bool          `koanf:"legacy.format" short:"l" description:"Use legacy message format. If disabled, rich text embeddings will be used."`
+
+	PostgresHostname string     `koanf:"postgres.hostname" short:"H" description:"Postgres host" validate:"required"`
+	PostgresPort     uint16     `koanf:"postgres.port" short:"P" description:"Postgres port" validate:"required"`
+	PostgresUser     string     `koanf:"postgres.user" short:"U" description:"Postgres user" validate:"required"`
+	PostgresPassword string     `koanf:"postgres.password" short:"W" description:"Postgres password" validate:"required"`
+	PostgresDatabase string     `koanf:"postgres.database" short:"D" description:"Postgres database" validate:"required"`
+	PostgresSSLMode  db.SSLMode `koanf:"postgres.sslmode" short:"S" description:"Postgres ssl mode" validate:"required"`
 }
 
 func (c *Config) Validate() error {
@@ -61,14 +66,10 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	if c.DatabaseDir == "" {
-		return errors.New("database directory is required")
-	}
-
-	_, err = os.Stat(c.DatabaseDir)
+	v := validator.New()
+	err = v.Struct(c)
 	if err != nil {
-		return err
+		return fmt.Errorf("config validation failed: %w", err)
 	}
-
 	return nil
 }

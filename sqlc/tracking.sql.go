@@ -15,18 +15,18 @@ INSERT INTO tracking (
     channel_id,
     address,
     message_id
-) VALUES (?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4)
 `
 
 type AddTrackingParams struct {
-	GuildID   int64
-	ChannelID int64
-	Address   string
-	MessageID int64
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Address   string `db:"address"`
+	MessageID int64  `db:"message_id"`
 }
 
 func (q *Queries) AddTracking(ctx context.Context, arg AddTrackingParams) error {
-	_, err := q.exec(ctx, q.addTrackingStmt, addTracking,
+	_, err := q.db.Exec(ctx, addTracking,
 		arg.GuildID,
 		arg.ChannelID,
 		arg.Address,
@@ -42,14 +42,14 @@ ORDER BY guild_id ASC, channel_id ASC, message_id ASC
 `
 
 type ListAllTrackingsRow struct {
-	GuildID   int64
-	ChannelID int64
-	Address   string
-	MessageID int64
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Address   string `db:"address"`
+	MessageID int64  `db:"message_id"`
 }
 
 func (q *Queries) ListAllTrackings(ctx context.Context) ([]ListAllTrackingsRow, error) {
-	rows, err := q.query(ctx, q.listAllTrackingsStmt, listAllTrackings)
+	rows, err := q.db.Query(ctx, listAllTrackings)
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +67,6 @@ func (q *Queries) ListAllTrackings(ctx context.Context) ([]ListAllTrackingsRow, 
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -79,25 +76,25 @@ func (q *Queries) ListAllTrackings(ctx context.Context) ([]ListAllTrackingsRow, 
 const listChannelTrackings = `-- name: ListChannelTrackings :many
 SELECT guild_id, channel_id, address, message_id
 FROM tracking
-WHERE guild_id = ?
-AND channel_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
 ORDER BY message_id ASC
 `
 
 type ListChannelTrackingsParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 type ListChannelTrackingsRow struct {
-	GuildID   int64
-	ChannelID int64
-	Address   string
-	MessageID int64
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Address   string `db:"address"`
+	MessageID int64  `db:"message_id"`
 }
 
 func (q *Queries) ListChannelTrackings(ctx context.Context, arg ListChannelTrackingsParams) ([]ListChannelTrackingsRow, error) {
-	rows, err := q.query(ctx, q.listChannelTrackingsStmt, listChannelTrackings, arg.GuildID, arg.ChannelID)
+	rows, err := q.db.Query(ctx, listChannelTrackings, arg.GuildID, arg.ChannelID)
 	if err != nil {
 		return nil, err
 	}
@@ -115,9 +112,6 @@ func (q *Queries) ListChannelTrackings(ctx context.Context, arg ListChannelTrack
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -126,16 +120,16 @@ func (q *Queries) ListChannelTrackings(ctx context.Context, arg ListChannelTrack
 
 const removeTrackingByMessageId = `-- name: RemoveTrackingByMessageId :exec
 DELETE FROM tracking
-WHERE guild_id = ?
-AND message_id = ?
+WHERE guild_id = $1
+AND message_id = $2
 `
 
 type RemoveTrackingByMessageIdParams struct {
-	GuildID   int64
-	MessageID int64
+	GuildID   int64 `db:"guild_id"`
+	MessageID int64 `db:"message_id"`
 }
 
 func (q *Queries) RemoveTrackingByMessageId(ctx context.Context, arg RemoveTrackingByMessageIdParams) error {
-	_, err := q.exec(ctx, q.removeTrackingByMessageIdStmt, removeTrackingByMessageId, arg.GuildID, arg.MessageID)
+	_, err := q.db.Exec(ctx, removeTrackingByMessageId, arg.GuildID, arg.MessageID)
 	return err
 }

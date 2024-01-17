@@ -30,10 +30,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 		return 0, 0, err
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(b.ctx)
+	q, closer, err := b.TxQueries(b.ctx)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -41,7 +38,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 		err = closer(err)
 	}()
 
-	err = dao.SetServers(b.ctx, b.queries.WithTx(tx), serverList)
+	err = dao.SetServers(b.ctx, q, serverList)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -57,10 +54,7 @@ func (b *Bot) changedServers() error {
 	var producer chan<- model.ChangedServerStatus = b.c
 
 	servers, err := func() (map[model.MessageTarget]model.ChangedServerStatus, error) {
-		b.db.Lock()
-		defer b.db.Unlock()
-
-		tx, closer, err := b.Tx(b.ctx)
+		q, closer, err := b.TxQueries(b.ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -68,7 +62,7 @@ func (b *Bot) changedServers() error {
 			err = closer(err)
 		}()
 
-		return dao.ChangedServers(b.ctx, b.queries.WithTx(tx))
+		return dao.ChangedServers(b.ctx, q)
 	}()
 	if err != nil {
 		return err
@@ -86,7 +80,7 @@ func (b *Bot) changedServers() error {
 	return nil
 }
 
-func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) error {
+func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) (err error) {
 	var (
 		content string
 		embeds  []discord.Embed = []discord.Embed{}
@@ -115,7 +109,7 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) error {
 		Embeds:  &embeds,
 	}
 
-	_, err := b.state.EditMessageComplex(
+	_, err = b.state.EditMessageComplex(
 		target.ChannelID,
 		target.MessageID,
 		data,
@@ -170,10 +164,13 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) error {
 
 	// message was somehow deleted without us noticing
 	// remove tracking for that message
-	b.db.Lock()
-	defer b.db.Unlock()
+	q, closer, err := b.ConnQueries(b.ctx)
+	if err != nil {
+		return err
+	}
+	defer closer()
 
-	err = dao.RemoveTrackingByMessageID(b.ctx, b.queries, target.GuildID, target.MessageID)
+	err = dao.RemoveTrackingByMessageID(b.ctx, q, target.GuildID, target.MessageID)
 	if err != nil {
 		return fmt.Errorf("failed to remove tracking of message id: %s: %w", target.MessageID, err)
 	}

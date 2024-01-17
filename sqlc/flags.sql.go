@@ -10,30 +10,34 @@ import (
 )
 
 const addFlag = `-- name: AddFlag :exec
-REPLACE INTO flags (flag_id, abbr, emoji)
-VALUES (?, ?, ?)
+INSERT INTO flags (flag_id, abbr, emoji)
+VALUES ($1, $2, $3)
+ON CONFLICT (flag_id) DO UPDATE
+SET
+	abbr = $2,
+    emoji = $3
 `
 
 type AddFlagParams struct {
-	FlagID int64
-	Abbr   string
-	Emoji  string
+	FlagID int16  `db:"flag_id"`
+	Abbr   string `db:"abbr"`
+	Emoji  string `db:"emoji"`
 }
 
 func (q *Queries) AddFlag(ctx context.Context, arg AddFlagParams) error {
-	_, err := q.exec(ctx, q.addFlagStmt, addFlag, arg.FlagID, arg.Abbr, arg.Emoji)
+	_, err := q.db.Exec(ctx, addFlag, arg.FlagID, arg.Abbr, arg.Emoji)
 	return err
 }
 
 const getFlag = `-- name: GetFlag :many
 SELECT flag_id, abbr, emoji
 FROM flags
-WHERE flag_id = ?
+WHERE flag_id = $1
 LIMIT 1
 `
 
-func (q *Queries) GetFlag(ctx context.Context, flagID int64) ([]Flag, error) {
-	rows, err := q.query(ctx, q.getFlagStmt, getFlag, flagID)
+func (q *Queries) GetFlag(ctx context.Context, flagID int16) ([]Flag, error) {
+	rows, err := q.db.Query(ctx, getFlag, flagID)
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +49,6 @@ func (q *Queries) GetFlag(ctx context.Context, flagID int64) ([]Flag, error) {
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -58,12 +59,12 @@ func (q *Queries) GetFlag(ctx context.Context, flagID int64) ([]Flag, error) {
 const getFlagByAbbr = `-- name: GetFlagByAbbr :many
 SELECT flag_id, abbr, emoji
 FROM flags
-WHERE abbr = ?
+WHERE abbr = $1
 LIMIT 1
 `
 
 func (q *Queries) GetFlagByAbbr(ctx context.Context, abbr string) ([]Flag, error) {
-	rows, err := q.query(ctx, q.getFlagByAbbrStmt, getFlagByAbbr, abbr)
+	rows, err := q.db.Query(ctx, getFlagByAbbr, abbr)
 	if err != nil {
 		return nil, err
 	}
@@ -75,9 +76,6 @@ func (q *Queries) GetFlagByAbbr(ctx context.Context, abbr string) ([]Flag, error
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -90,7 +88,7 @@ SELECT flag_id, abbr, emoji FROM flags ORDER BY abbr ASC
 `
 
 func (q *Queries) ListFlags(ctx context.Context) ([]Flag, error) {
-	rows, err := q.query(ctx, q.listFlagsStmt, listFlags)
+	rows, err := q.db.Query(ctx, listFlags)
 	if err != nil {
 		return nil, err
 	}
@@ -102,9 +100,6 @@ func (q *Queries) ListFlags(ctx context.Context) ([]Flag, error) {
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

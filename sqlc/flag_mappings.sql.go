@@ -10,22 +10,27 @@ import (
 )
 
 const addFlagMapping = `-- name: AddFlagMapping :exec
-REPLACE INTO flag_mappings (
+INSERT INTO flag_mappings (
     guild_id,
     channel_id,
-    flag_id, emoji
-) VALUES (?, ?, ?, ?)
+    flag_id,
+	emoji
+) VALUES ($1, $2, $3, $4)
+ON CONFLICT (channel_id, flag_id) DO UPDATE
+SET
+	guild_id = $1,
+    emoji = $4
 `
 
 type AddFlagMappingParams struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int64
-	Emoji     string
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	FlagID    int16  `db:"flag_id"`
+	Emoji     string `db:"emoji"`
 }
 
 func (q *Queries) AddFlagMapping(ctx context.Context, arg AddFlagMappingParams) error {
-	_, err := q.exec(ctx, q.addFlagMappingStmt, addFlagMapping,
+	_, err := q.db.Exec(ctx, addFlagMapping,
 		arg.GuildID,
 		arg.ChannelID,
 		arg.FlagID,
@@ -41,26 +46,26 @@ SELECT
 	f.abbr
 FROM flag_mappings m
 JOIN flags f ON m.flag_id = f.flag_id
-WHERE m.guild_id = ?
-AND m.channel_id = ?
-AND m.flag_id = ?
+WHERE m.guild_id = $1
+AND m.channel_id = $2
+AND m.flag_id = $3
 LIMIT 1
 `
 
 type GetFlagMappingParams struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	FlagID    int16 `db:"flag_id"`
 }
 
 type GetFlagMappingRow struct {
-	FlagID int64
-	Emoji  string
-	Abbr   string
+	FlagID int16  `db:"flag_id"`
+	Emoji  string `db:"emoji"`
+	Abbr   string `db:"abbr"`
 }
 
 func (q *Queries) GetFlagMapping(ctx context.Context, arg GetFlagMappingParams) ([]GetFlagMappingRow, error) {
-	rows, err := q.query(ctx, q.getFlagMappingStmt, getFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
+	rows, err := q.db.Query(ctx, getFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
 	if err != nil {
 		return nil, err
 	}
@@ -72,9 +77,6 @@ func (q *Queries) GetFlagMapping(ctx context.Context, arg GetFlagMappingParams) 
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -89,24 +91,24 @@ SELECT
 	f.abbr
 FROM flag_mappings m
 JOIN flags f ON m.flag_id = f.flag_id
-WHERE m.guild_id = ?
-AND m.channel_id = ?
+WHERE m.guild_id = $1
+AND m.channel_id = $2
 ORDER BY f.abbr ASC
 `
 
 type ListFlagMappingsParams struct {
-	GuildID   int64
-	ChannelID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
 }
 
 type ListFlagMappingsRow struct {
-	FlagID int64
-	Emoji  string
-	Abbr   string
+	FlagID int16  `db:"flag_id"`
+	Emoji  string `db:"emoji"`
+	Abbr   string `db:"abbr"`
 }
 
 func (q *Queries) ListFlagMappings(ctx context.Context, arg ListFlagMappingsParams) ([]ListFlagMappingsRow, error) {
-	rows, err := q.query(ctx, q.listFlagMappingsStmt, listFlagMappings, arg.GuildID, arg.ChannelID)
+	rows, err := q.db.Query(ctx, listFlagMappings, arg.GuildID, arg.ChannelID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,9 +121,6 @@ func (q *Queries) ListFlagMappings(ctx context.Context, arg ListFlagMappingsPara
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -130,18 +129,18 @@ func (q *Queries) ListFlagMappings(ctx context.Context, arg ListFlagMappingsPara
 
 const removeFlagMapping = `-- name: RemoveFlagMapping :exec
 DELETE FROM flag_mappings
-WHERE guild_id = ?
-AND channel_id = ?
-AND flag_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND flag_id = $3
 `
 
 type RemoveFlagMappingParams struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	FlagID    int16 `db:"flag_id"`
 }
 
 func (q *Queries) RemoveFlagMapping(ctx context.Context, arg RemoveFlagMappingParams) error {
-	_, err := q.exec(ctx, q.removeFlagMappingStmt, removeFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
+	_, err := q.db.Exec(ctx, removeFlagMapping, arg.GuildID, arg.ChannelID, arg.FlagID)
 	return err
 }

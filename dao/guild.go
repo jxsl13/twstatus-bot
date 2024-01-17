@@ -30,7 +30,7 @@ func AddGuild(ctx context.Context, q *sqlc.Queries, guild model.Guild) (err erro
 		Description: guild.Description,
 	})
 	if err != nil {
-		if IsPrimaryKeyConstraintErr(err) {
+		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: guild %d", ErrAlreadyExists, guild.ID)
 		}
 		return fmt.Errorf("failed to insert guild %d: %w", guild.ID, err)

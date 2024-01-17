@@ -20,9 +20,9 @@ SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
 ORDER BY user_id ASC;
 
 
@@ -34,21 +34,23 @@ SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
-AND user_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
+AND user_id = $4
 LIMIT 1;
 
 
 -- name: SetPlayerCountNotification :exec
-REPLACE INTO player_count_notifications (
+INSERT INTO player_count_notifications (
 	guild_id,
 	channel_id,
 	message_id,
 	user_id,
 	threshold
-) VALUES (?, ?, ?, ?, ?);
+) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (guild_id, channel_id, message_id, user_id)
+DO UPDATE SET threshold = $5;
 
 
 -- name: RemovePlayerCountNotifications :exec
@@ -57,8 +59,8 @@ DELETE FROM player_count_notifications;
 
 -- name: RemovePlayerCountNotification :exec
 DELETE FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
-AND user_id = ?
-AND threshold = ?;
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
+AND user_id = $4
+AND threshold = $5;

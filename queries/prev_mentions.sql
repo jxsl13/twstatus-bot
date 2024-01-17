@@ -11,6 +11,6 @@ ORDER BY guild_id ASC, channel_id ASC, message_id ASC, user_id ASC;
 
 -- name: RemoveMessageMentions :exec
 DELETE FROM prev_message_mentions
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?;
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3;

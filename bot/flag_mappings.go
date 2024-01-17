@@ -18,12 +18,15 @@ type AddFlagMappingParams struct {
 }
 
 func (b *Bot) listFlagMappings(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	b.db.Lock()
-	defer b.db.Unlock()
+	q, closer, err := b.ConnQueries(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer closer()
 
 	channelID := optionalChannelID(data)
 	mappings, err := dao.ListFlagMappings(ctx,
-		b.queries,
+		q,
 		data.Event.GuildID, channelID,
 	)
 	if err != nil {
@@ -44,10 +47,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		return errorResponse(err)
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -58,9 +58,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
-	flag, err := dao.GetFlagByAbbr(ctx, queries, params.Abbr)
+	flag, err := dao.GetFlagByAbbr(ctx, q, params.Abbr)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -73,7 +71,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		Emoji:     params.Emoji,
 	}
 
-	err = dao.AddFlagMapping(ctx, queries, mapping)
+	err = dao.AddFlagMapping(ctx, q, mapping)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -97,10 +95,7 @@ func (b *Bot) removeFlagMapping(ctx context.Context, data cmdroute.CommandData) 
 		return errorResponse(err)
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -111,11 +106,9 @@ func (b *Bot) removeFlagMapping(ctx context.Context, data cmdroute.CommandData) 
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
 	err = dao.RemoveFlagMapping(
 		ctx,
-		queries,
+		q,
 		data.Event.GuildID,
 		optionalChannelID(data),
 		params.Abbr,

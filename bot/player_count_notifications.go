@@ -31,27 +31,23 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		Threshold:         val,
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(b.ctx)
+	q, closer, err := b.TxQueries(b.ctx)
 	if err != nil {
-		log.Printf("failed to get transaction: %v", err)
+		log.Printf("failed to get transaction queries for player count notification: %v", err)
 		return
 	}
 	defer func() {
 		err = closer(err)
 		if err != nil {
-			log.Printf("failed to close transaction: %v", err)
+			log.Printf("failed to close transaction queries for player count notification: %v", err)
 		}
 	}()
-	queries := b.queries.WithTx(tx)
 
-	pcn, err := dao.GetPlayerCountNotification(b.ctx, queries, userTarget)
+	pcn, err := dao.GetPlayerCountNotification(b.ctx, q, userTarget)
 	if err != nil {
 		// not found, just insert
 		if errors.Is(err, dao.ErrNotFound) {
-			err = dao.SetPlayerCountNotification(b.ctx, queries, n)
+			err = dao.SetPlayerCountNotification(b.ctx, q, n)
 			if err != nil {
 				log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 				return
@@ -80,7 +76,7 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		return
 	}
 
-	err = dao.SetPlayerCountNotification(b.ctx, queries, n)
+	err = dao.SetPlayerCountNotification(b.ctx, q, n)
 	if err != nil {
 		log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
@@ -111,10 +107,14 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 		Threshold:         val,
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
+	q, closer, err := b.ConnQueries(b.ctx)
+	if err != nil {
+		log.Printf("failed to get connection queries for player count notification: %v", err)
+		return
+	}
+	defer closer()
 
-	err := dao.RemovePlayerCountNotification(b.ctx, b.queries, n)
+	err = dao.RemovePlayerCountNotification(b.ctx, q, n)
 	if err != nil {
 		log.Printf("failed to remove player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return

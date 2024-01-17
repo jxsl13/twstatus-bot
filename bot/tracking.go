@@ -56,10 +56,7 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 		msgs = append(msgs, msg)
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -70,10 +67,8 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
 	for idx, msg := range msgs {
-		err = dao.AddTracking(ctx, queries, model.Tracking{
+		err = dao.AddTracking(ctx, q, model.Tracking{
 			MessageTarget: model.MessageTarget{
 				ChannelTarget: model.ChannelTarget{
 					GuildID:   data.Event.GuildID,

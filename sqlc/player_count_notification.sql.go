@@ -14,25 +14,25 @@ SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
 ORDER BY user_id ASC
 `
 
 type GetMessageTargetNotificationsParams struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
 }
 
 type GetMessageTargetNotificationsRow struct {
-	UserID    int64
-	Threshold int64
+	UserID    int64 `db:"user_id"`
+	Threshold int16 `db:"threshold"`
 }
 
 func (q *Queries) GetMessageTargetNotifications(ctx context.Context, arg GetMessageTargetNotificationsParams) ([]GetMessageTargetNotificationsRow, error) {
-	rows, err := q.query(ctx, q.getMessageTargetNotificationsStmt, getMessageTargetNotifications, arg.GuildID, arg.ChannelID, arg.MessageID)
+	rows, err := q.db.Query(ctx, getMessageTargetNotifications, arg.GuildID, arg.ChannelID, arg.MessageID)
 	if err != nil {
 		return nil, err
 	}
@@ -44,9 +44,6 @@ func (q *Queries) GetMessageTargetNotifications(ctx context.Context, arg GetMess
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -62,22 +59,22 @@ SELECT
 	user_id,
 	threshold
 FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
-AND user_id = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
+AND user_id = $4
 LIMIT 1
 `
 
 type GetPlayerCountNotificationParams struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
-	UserID    int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+	UserID    int64 `db:"user_id"`
 }
 
 func (q *Queries) GetPlayerCountNotification(ctx context.Context, arg GetPlayerCountNotificationParams) ([]PlayerCountNotification, error) {
-	rows, err := q.query(ctx, q.getPlayerCountNotificationStmt, getPlayerCountNotification,
+	rows, err := q.db.Query(ctx, getPlayerCountNotification,
 		arg.GuildID,
 		arg.ChannelID,
 		arg.MessageID,
@@ -100,9 +97,6 @@ func (q *Queries) GetPlayerCountNotification(ctx context.Context, arg GetPlayerC
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -126,7 +120,7 @@ ORDER BY
 `
 
 func (q *Queries) ListPlayerCountNotifications(ctx context.Context) ([]PlayerCountNotification, error) {
-	rows, err := q.query(ctx, q.listPlayerCountNotificationsStmt, listPlayerCountNotifications)
+	rows, err := q.db.Query(ctx, listPlayerCountNotifications)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +139,6 @@ func (q *Queries) ListPlayerCountNotifications(ctx context.Context) ([]PlayerCou
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -156,23 +147,23 @@ func (q *Queries) ListPlayerCountNotifications(ctx context.Context) ([]PlayerCou
 
 const removePlayerCountNotification = `-- name: RemovePlayerCountNotification :exec
 DELETE FROM player_count_notifications
-WHERE guild_id = ?
-AND channel_id = ?
-AND message_id = ?
-AND user_id = ?
-AND threshold = ?
+WHERE guild_id = $1
+AND channel_id = $2
+AND message_id = $3
+AND user_id = $4
+AND threshold = $5
 `
 
 type RemovePlayerCountNotificationParams struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
-	UserID    int64
-	Threshold int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+	UserID    int64 `db:"user_id"`
+	Threshold int16 `db:"threshold"`
 }
 
 func (q *Queries) RemovePlayerCountNotification(ctx context.Context, arg RemovePlayerCountNotificationParams) error {
-	_, err := q.exec(ctx, q.removePlayerCountNotificationStmt, removePlayerCountNotification,
+	_, err := q.db.Exec(ctx, removePlayerCountNotification,
 		arg.GuildID,
 		arg.ChannelID,
 		arg.MessageID,
@@ -187,30 +178,32 @@ DELETE FROM player_count_notifications
 `
 
 func (q *Queries) RemovePlayerCountNotifications(ctx context.Context) error {
-	_, err := q.exec(ctx, q.removePlayerCountNotificationsStmt, removePlayerCountNotifications)
+	_, err := q.db.Exec(ctx, removePlayerCountNotifications)
 	return err
 }
 
 const setPlayerCountNotification = `-- name: SetPlayerCountNotification :exec
-REPLACE INTO player_count_notifications (
+INSERT INTO player_count_notifications (
 	guild_id,
 	channel_id,
 	message_id,
 	user_id,
 	threshold
-) VALUES (?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (guild_id, channel_id, message_id, user_id)
+DO UPDATE SET threshold = $5
 `
 
 type SetPlayerCountNotificationParams struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
-	UserID    int64
-	Threshold int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+	UserID    int64 `db:"user_id"`
+	Threshold int16 `db:"threshold"`
 }
 
 func (q *Queries) SetPlayerCountNotification(ctx context.Context, arg SetPlayerCountNotificationParams) error {
-	_, err := q.exec(ctx, q.setPlayerCountNotificationStmt, setPlayerCountNotification,
+	_, err := q.db.Exec(ctx, setPlayerCountNotification,
 		arg.GuildID,
 		arg.ChannelID,
 		arg.MessageID,

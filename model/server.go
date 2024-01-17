@@ -17,13 +17,13 @@ type Server struct {
 	Protocols    []string
 	Name         string
 	Gametype     string
-	Passworded   int64
+	Passworded   bool
 	Map          string
 	MapSha256Sum *string
-	MapSize      *int64
+	MapSize      *int32
 	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
+	MaxClients   int16
+	MaxPlayers   int16
 	ScoreKind    string
 	Clients      []Client // serialized as json into database
 }
@@ -40,12 +40,12 @@ func (s *Server) ProtocolsFromJSON(data []byte) error {
 type Client struct {
 	Name     string `json:"name"`
 	Clan     string `json:"clan"`
-	Country  int64  `json:"country"`
-	Score    int64  `json:"score"`
+	Country  int16  `json:"country"`
+	Score    int32  `json:"score"`
 	IsPlayer bool   `json:"is_player"`
 	Skin     *Skin  `json:"skin,omitempty"`
 	Afk      *bool  `json:"afk,omitempty"`
-	Team     *int64 `json:"team,omitempty"`
+	Team     *int16 `json:"team,omitempty"`
 }
 
 func (c *Client) IsPlayerInt64() int64 {
@@ -172,7 +172,7 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 				Protocols:    protocols,
 				Name:         info.Name,
 				Gametype:     info.GameType,
-				Passworded:   info.PasswordedInt64(),
+				Passworded:   info.Passworded,
 				Map:          info.Map.Name,
 				MapSha256Sum: info.Map.Sha256,
 				MapSize:      info.Map.Size,

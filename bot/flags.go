@@ -13,10 +13,13 @@ import (
 )
 
 func (b *Bot) listFlags(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
+	q, closer, err := b.ConnQueries(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer closer()
 
-	b.db.Lock()
-	flags, err := dao.ListFlags(ctx, b.queries)
-	b.db.Unlock()
+	flags, err := dao.ListFlags(ctx, q)
 
 	if err != nil {
 		return errorResponse(err)

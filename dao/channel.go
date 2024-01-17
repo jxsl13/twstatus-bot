@@ -27,7 +27,7 @@ func GetChannel(ctx context.Context, q *sqlc.Queries, guildId discord.GuildID, c
 	return model.Channel{
 		GuildID: guildId,
 		ID:      channelID,
-		Running: running != 0,
+		Running: running,
 	}, nil
 }
 
@@ -42,7 +42,7 @@ func ListChannels(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID)
 		result = append(result, model.Channel{
 			GuildID: guildID,
 			ID:      discord.ChannelID(c.ChannelID),
-			Running: c.Running != 0,
+			Running: c.Running,
 		})
 	}
 
@@ -53,10 +53,10 @@ func AddChannel(ctx context.Context, q *sqlc.Queries, channel model.Channel) (er
 	err = q.AddGuildChannel(ctx, sqlc.AddGuildChannelParams{
 		GuildID:   int64(channel.GuildID),
 		ChannelID: int64(channel.ID),
-		Running:   channel.RunningInt64(),
+		Running:   channel.Running,
 	})
 	if err != nil {
-		if IsPrimaryKeyConstraintErr(err) {
+		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: channel %s", ErrAlreadyExists, channel)
 		}
 		return fmt.Errorf("failed to insert channel %d: %w", channel.ID, err)

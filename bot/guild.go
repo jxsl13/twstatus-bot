@@ -20,10 +20,13 @@ func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.In
 		return ErrAccessForbidden()
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
+	q, closer, err := b.ConnQueries(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer closer()
 
-	guilds, err := dao.ListGuilds(ctx, b.queries)
+	guilds, err := dao.ListGuilds(ctx, q)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -58,10 +61,13 @@ func (b *Bot) addGuildCommand(ctx context.Context, data cmdroute.CommandData) *a
 		return errorResponse(err)
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
+	q, closer, err := b.ConnQueries(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer closer()
 
-	err = dao.AddGuild(ctx, b.queries, model.Guild{
+	err = dao.AddGuild(ctx, q, model.Guild{
 		ID:          id,
 		Description: opts.Description,
 	})
@@ -90,10 +96,7 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 		id = data.Event.GuildID
 	}
 
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -104,9 +107,7 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
-	guild, err := dao.RemoveGuild(ctx, queries, id)
+	guild, err := dao.RemoveGuild(ctx, q, id)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -119,10 +120,14 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 }
 
 func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
-	b.db.Lock()
-	defer b.db.Unlock()
+	q, closer, err := b.ConnQueries(b.ctx)
+	if err != nil {
+		log.Printf("failed to create transaction for addition of guild %s: %v", e.ID, err)
+		return
+	}
+	defer closer()
 
-	err := dao.AddGuild(b.ctx, b.queries, model.Guild{
+	err = dao.AddGuild(b.ctx, q, model.Guild{
 		ID:          e.ID,
 		Description: e.Name,
 	})
@@ -136,10 +141,7 @@ func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
 }
 
 func (b *Bot) handleRemoveGuild(e *gateway.GuildDeleteEvent) {
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(b.ctx)
+	q, closer, err := b.TxQueries(b.ctx)
 	if err != nil {
 		log.Printf("failed to create transaction for deletion of guild %d: %v", e.ID, err)
 		return
@@ -147,13 +149,11 @@ func (b *Bot) handleRemoveGuild(e *gateway.GuildDeleteEvent) {
 	defer func() {
 		err = closer(err)
 		if err != nil {
-			log.Printf("failed to close transactionfor deletion of guild %d: %v", e.ID, err)
+			log.Printf("failed to close transaction for deletion of guild %d: %v", e.ID, err)
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
-	guild, err := dao.RemoveGuild(b.ctx, queries, e.ID)
+	guild, err := dao.RemoveGuild(b.ctx, q, e.ID)
 	if err != nil {
 		log.Printf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
 	} else {

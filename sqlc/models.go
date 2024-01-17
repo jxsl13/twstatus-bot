@@ -4,112 +4,114 @@
 
 package sqlc
 
-import ()
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
 
 type ActiveServer struct {
-	Timestamp    int64
-	Address      string
-	Protocols    string
-	Name         string
-	Gametype     string
-	Passworded   int64
-	Map          string
-	MapSha256sum *string
-	MapSize      *int64
-	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	Timestamp    pgtype.Timestamptz `db:"timestamp"`
+	Address      string             `db:"address"`
+	Protocols    []byte             `db:"protocols"`
+	Name         string             `db:"name"`
+	Gametype     string             `db:"gametype"`
+	Passworded   bool               `db:"passworded"`
+	Map          string             `db:"map"`
+	MapSha256sum *string            `db:"map_sha256sum"`
+	MapSize      *int32             `db:"map_size"`
+	Version      string             `db:"version"`
+	MaxClients   int16              `db:"max_clients"`
+	MaxPlayers   int16              `db:"max_players"`
+	ScoreKind    string             `db:"score_kind"`
 }
 
 type ActiveServerClient struct {
-	ID        int64
-	MessageID int64
-	Address   string
-	Name      string
-	Clan      string
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
-	Team      *int64
+	ID        int64  `db:"id"`
+	Address   string `db:"address"`
+	Name      string `db:"name"`
+	Clan      string `db:"clan"`
+	CountryID int16  `db:"country_id"`
+	Score     int32  `db:"score"`
+	IsPlayer  bool   `db:"is_player"`
+	Team      *int16 `db:"team"`
 }
 
 type Channel struct {
-	ChannelID int64
-	GuildID   int64
-	Running   int64
+	ChannelID int64 `db:"channel_id"`
+	GuildID   int64 `db:"guild_id"`
+	Running   bool  `db:"running"`
 }
 
 type Flag struct {
-	FlagID int64
-	Abbr   string
-	Emoji  string
+	FlagID int16  `db:"flag_id"`
+	Abbr   string `db:"abbr"`
+	Emoji  string `db:"emoji"`
 }
 
 type FlagMapping struct {
-	GuildID   int64
-	ChannelID int64
-	FlagID    int64
-	Emoji     string
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	FlagID    int16  `db:"flag_id"`
+	Emoji     string `db:"emoji"`
 }
 
 type Guild struct {
-	GuildID     int64
-	Description string
+	GuildID     int64  `db:"guild_id"`
+	Description string `db:"description"`
 }
 
 type PlayerCountNotification struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
-	UserID    int64
-	Threshold int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+	UserID    int64 `db:"user_id"`
+	Threshold int16 `db:"threshold"`
 }
 
 type PrevActiveServer struct {
-	MessageID    int64
-	GuildID      int64
-	ChannelID    int64
-	Timestamp    int64
-	Address      string
-	Protocols    string
-	Name         string
-	Gametype     string
-	Passworded   int64
-	Map          string
-	MapSha256sum *string
-	MapSize      *int64
-	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	MessageID    int64              `db:"message_id"`
+	GuildID      int64              `db:"guild_id"`
+	ChannelID    int64              `db:"channel_id"`
+	Timestamp    pgtype.Timestamptz `db:"timestamp"`
+	Address      string             `db:"address"`
+	Protocols    []byte             `db:"protocols"`
+	Name         string             `db:"name"`
+	Gametype     string             `db:"gametype"`
+	Passworded   bool               `db:"passworded"`
+	Map          string             `db:"map"`
+	MapSha256sum *string            `db:"map_sha256sum"`
+	MapSize      *int32             `db:"map_size"`
+	Version      string             `db:"version"`
+	MaxClients   int16              `db:"max_clients"`
+	MaxPlayers   int16              `db:"max_players"`
+	ScoreKind    string             `db:"score_kind"`
 }
 
 type PrevActiveServerClient struct {
-	ID        int64
-	MessageID int64
-	GuildID   int64
-	ChannelID int64
-	Name      string
-	Clan      string
-	Team      *int64
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
-	FlagAbbr  string
-	FlagEmoji string
+	ID        int64  `db:"id"`
+	MessageID int64  `db:"message_id"`
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Name      string `db:"name"`
+	Clan      string `db:"clan"`
+	CountryID int16  `db:"country_id"`
+	Score     int32  `db:"score"`
+	IsPlayer  bool   `db:"is_player"`
+	Team      *int16 `db:"team"`
+	FlagAbbr  string `db:"flag_abbr"`
+	FlagEmoji string `db:"flag_emoji"`
 }
 
 type PrevMessageMention struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
-	UserID    int64
+	GuildID   int64 `db:"guild_id"`
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+	UserID    int64 `db:"user_id"`
 }
 
 type Tracking struct {
-	MessageID int64
-	GuildID   int64
-	ChannelID int64
-	Address   string
+	ID        *int64 `db:"id"`
+	MessageID int64  `db:"message_id"`
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	Address   string `db:"address"`
 }

@@ -7,6 +7,8 @@ package sqlc
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteActiveServerClients = `-- name: DeleteActiveServerClients :exec
@@ -14,7 +16,7 @@ DELETE FROM active_server_clients
 `
 
 func (q *Queries) DeleteActiveServerClients(ctx context.Context) error {
-	_, err := q.exec(ctx, q.deleteActiveServerClientsStmt, deleteActiveServerClients)
+	_, err := q.db.Exec(ctx, deleteActiveServerClients)
 	return err
 }
 
@@ -23,7 +25,7 @@ DELETE FROM active_servers
 `
 
 func (q *Queries) DeleteActiveServers(ctx context.Context) error {
-	_, err := q.exec(ctx, q.deleteActiveServersStmt, deleteActiveServers)
+	_, err := q.db.Exec(ctx, deleteActiveServers)
 	return err
 }
 
@@ -31,12 +33,12 @@ const existsServer = `-- name: ExistsServer :many
 SELECT
 	address
 FROM active_servers
-WHERE address = ?
+WHERE address = $1
 LIMIT 1
 `
 
 func (q *Queries) ExistsServer(ctx context.Context, address string) ([]string, error) {
-	rows, err := q.query(ctx, q.existsServerStmt, existsServer, address)
+	rows, err := q.db.Query(ctx, existsServer, address)
 	if err != nil {
 		return nil, err
 	}
@@ -48,9 +50,6 @@ func (q *Queries) ExistsServer(ctx context.Context, address string) ([]string, e
 			return nil, err
 		}
 		items = append(items, address)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -67,21 +66,21 @@ INSERT INTO active_server_clients (
 	score,
 	is_player,
 	team
-) VALUES (?,?,?,?,?,?,?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
 type InsertActiveServerClientsParams struct {
-	Address   string
-	Name      string
-	Clan      string
-	CountryID int64
-	Score     int64
-	IsPlayer  int64
-	Team      *int64
+	Address   string `db:"address"`
+	Name      string `db:"name"`
+	Clan      string `db:"clan"`
+	CountryID int16  `db:"country_id"`
+	Score     int32  `db:"score"`
+	IsPlayer  bool   `db:"is_player"`
+	Team      *int16 `db:"team"`
 }
 
 func (q *Queries) InsertActiveServerClients(ctx context.Context, arg InsertActiveServerClientsParams) error {
-	_, err := q.exec(ctx, q.insertActiveServerClientsStmt, insertActiveServerClients,
+	_, err := q.db.Exec(ctx, insertActiveServerClients,
 		arg.Address,
 		arg.Name,
 		arg.Clan,
@@ -108,27 +107,27 @@ INSERT INTO active_servers (
 	max_clients,
 	max_players,
 	score_kind
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 type InsertActiveServersParams struct {
-	Timestamp    int64
-	Address      string
-	Protocols    string
-	Name         string
-	Gametype     string
-	Passworded   int64
-	Map          string
-	MapSha256sum *string
-	MapSize      *int64
-	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	Timestamp    pgtype.Timestamptz `db:"timestamp"`
+	Address      string             `db:"address"`
+	Protocols    []byte             `db:"protocols"`
+	Name         string             `db:"name"`
+	Gametype     string             `db:"gametype"`
+	Passworded   bool               `db:"passworded"`
+	Map          string             `db:"map"`
+	MapSha256sum *string            `db:"map_sha256sum"`
+	MapSize      *int32             `db:"map_size"`
+	Version      string             `db:"version"`
+	MaxClients   int16              `db:"max_clients"`
+	MaxPlayers   int16              `db:"max_players"`
+	ScoreKind    string             `db:"score_kind"`
 }
 
 func (q *Queries) InsertActiveServers(ctx context.Context, arg InsertActiveServersParams) error {
-	_, err := q.exec(ctx, q.insertActiveServersStmt, insertActiveServers,
+	_, err := q.db.Exec(ctx, insertActiveServers,
 		arg.Timestamp,
 		arg.Address,
 		arg.Protocols,
@@ -154,11 +153,11 @@ SELECT
 	tsc.name,
 	tsc.clan,
 	tsc.country_id,
-	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END) as score,
+	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END)::INTEGER as score,
 	tsc.is_player,
 	tsc.team,
 	f.abbr,
-	(CASE WHEN fm.emoji NOT NULL THEN fm.emoji ELSE f.emoji END) as flag_emoji
+	COALESCE(fm.emoji, f.emoji)::VARCHAR(64) as flag_emoji
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_server_clients tsc ON t.address = tsc.address
@@ -168,31 +167,31 @@ LEFT JOIN flag_mappings fm ON
 		t.channel_id = fm.channel_id AND
 		tsc.country_id = fm.flag_id
 	)
-WHERE c.running = 1
+WHERE c.running = TRUE
 ORDER BY
     c.guild_id ASC,
     c.channel_id ASC,
-    t._rowid_,
+    t.id ASC,
     score DESC,
     tsc.name ASC
 `
 
 type ListTrackedServerClientsRow struct {
-	GuildID   int64
-	ChannelID int64
-	MessageID int64
-	Name      string
-	Clan      string
-	CountryID int64
-	Score     interface{}
-	IsPlayer  int64
-	Team      *int64
-	Abbr      string
-	FlagEmoji interface{}
+	GuildID   int64  `db:"guild_id"`
+	ChannelID int64  `db:"channel_id"`
+	MessageID int64  `db:"message_id"`
+	Name      string `db:"name"`
+	Clan      string `db:"clan"`
+	CountryID int16  `db:"country_id"`
+	Score     int32  `db:"score"`
+	IsPlayer  bool   `db:"is_player"`
+	Team      *int16 `db:"team"`
+	Abbr      string `db:"abbr"`
+	FlagEmoji string `db:"flag_emoji"`
 }
 
 func (q *Queries) ListTrackedServerClients(ctx context.Context) ([]ListTrackedServerClientsRow, error) {
-	rows, err := q.query(ctx, q.listTrackedServerClientsStmt, listTrackedServerClients)
+	rows, err := q.db.Query(ctx, listTrackedServerClients)
 	if err != nil {
 		return nil, err
 	}
@@ -216,9 +215,6 @@ func (q *Queries) ListTrackedServerClients(ctx context.Context) ([]ListTrackedSe
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -247,31 +243,31 @@ SELECT
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 JOIN active_servers ts ON t.address = ts.address
-WHERE c.running = 1
+WHERE c.running = TRUE
 ORDER BY c.guild_id ASC, c.channel_id ASC
 `
 
 type ListTrackedServersRow struct {
-	GuildID      int64
-	ChannelID    int64
-	MessageID    int64
-	Timestamp    int64
-	Address      string
-	Protocols    string
-	Name         string
-	Gametype     string
-	Passworded   int64
-	Map          string
-	MapSha256sum *string
-	MapSize      *int64
-	Version      string
-	MaxClients   int64
-	MaxPlayers   int64
-	ScoreKind    string
+	GuildID      int64              `db:"guild_id"`
+	ChannelID    int64              `db:"channel_id"`
+	MessageID    int64              `db:"message_id"`
+	Timestamp    pgtype.Timestamptz `db:"timestamp"`
+	Address      string             `db:"address"`
+	Protocols    []byte             `db:"protocols"`
+	Name         string             `db:"name"`
+	Gametype     string             `db:"gametype"`
+	Passworded   bool               `db:"passworded"`
+	Map          string             `db:"map"`
+	MapSha256sum *string            `db:"map_sha256sum"`
+	MapSize      *int32             `db:"map_size"`
+	Version      string             `db:"version"`
+	MaxClients   int16              `db:"max_clients"`
+	MaxPlayers   int16              `db:"max_players"`
+	ScoreKind    string             `db:"score_kind"`
 }
 
 func (q *Queries) ListTrackedServers(ctx context.Context) ([]ListTrackedServersRow, error) {
-	rows, err := q.query(ctx, q.listTrackedServersStmt, listTrackedServers)
+	rows, err := q.db.Query(ctx, listTrackedServers)
 	if err != nil {
 		return nil, err
 	}
@@ -300,9 +296,6 @@ func (q *Queries) ListTrackedServers(ctx context.Context) ([]ListTrackedServersR
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

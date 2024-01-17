@@ -10,7 +10,7 @@ services:
     #build: .
 
     # comment when building from source
-    image: ghcr.io/jxsl13/twstatus-bot:main
+    image: ghcr.io/jxsl13/twstatus-bot:main # you might want to use a specific tag here like v0.2.x
     restart: unless-stopped
     depends_on:
       - postgres

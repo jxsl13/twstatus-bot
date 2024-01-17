@@ -7,19 +7,37 @@ services:
     container_name: twstatus-bot
 
     # uncomment to build from source
-    # build: .
+    #build: .
 
     # comment when building from source
     image: ghcr.io/jxsl13/twstatus-bot:main
     restart: unless-stopped
+    depends_on:
+      - postgres
     environment:
         TWBOT_DISCORD_TOKEN: ${TWBOT_DISCORD_TOKEN:?err}
         TWBOT_SUPER_ADMINS: ${TWBOT_SUPER_ADMINS:?err}
-        TWBOT_DB_DIR: ${TWBOT_DB_DIR:-/data}
-        TWBOT_DB_WAL: ${TWBOT_DB_WAL:-false}
         TWBOT_DISCORD_GUILD_ID: ${TWBOT_DISCORD_GUILD_ID:?err}
         TWBOT_DISCORD_CHANNEL_ID: ${TWBOT_DISCORD_CHANNEL_ID:?err}
         TWBOT_POLL_INTERVAL: ${TWBOT_POLL_INTERVAL:-16s}
         TWBOT_LEGACY_FORMAT: ${TWBOT_LEGACY_FORMAT:-false}
+        TWBOT_POSTGRES_HOSTNAME: "postgres"
+        TWBOT_POSTGRES_PORT: "5432"
+        TWBOT_POSTGRES_USER: ${TWBOT_POSTGRES_USER:?err}
+        TWBOT_POSTGRES_PASSWORD: ${TWBOT_POSTGRES_PASSWORD:?err}
+        TWBOT_POSTGRES_SSLMODE: "disable"
+
+  postgres:
+    container_name: postgres
+
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+        POSTGRES_PASSWORD: ${TWBOT_POSTGRES_PASSWORD:?err}
+        POSTGRES_USER: ${TWBOT_POSTGRES_USER:?err}
+        POSTGRES_DB: ${TWBOT_POSTGRES_DATABASE:?err}
+
     volumes:
-      - .:/data
+      - ./volumes/postgresql/data:/var/lib/postgresql/data
+    ports:
+      - 127.0.0.1:5432:5432

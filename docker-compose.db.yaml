@@ -8,9 +8,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
-        POSTGRES_USER: ${POSTGRES_USER:?err}
-        POSTGRES_DB: ${POSTGRES_DB:?err}
+        POSTGRES_PASSWORD: ${TWBOT_POSTGRES_PASSWORD:?err}
+        POSTGRES_USER: ${TWBOT_POSTGRES_USER:?err}
+        POSTGRES_DB: ${TWBOT_POSTGRES_DATABASE:?err}
 
     volumes:
       - ./volumes/postgresql/data:/var/lib/postgresql/data

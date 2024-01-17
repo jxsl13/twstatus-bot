@@ -1,11 +1,9 @@
 package dao
 
 import (
-	"context"
 	"errors"
 
-	"github.com/jxsl13/twstatus-bot/db"
-	"modernc.org/sqlite"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 var (
@@ -14,27 +12,13 @@ var (
 )
 
 const (
-	UniqueConstraintViolation     = 2067
-	PrimaryKeyConstraintViolation = 1555
+	UniqueConstraintViolation = "23505"
 )
 
-func IsPrimaryKeyConstraintErr(err error) bool {
-	serr, ok := err.(*sqlite.Error)
-	if ok {
-		return serr.Code() == PrimaryKeyConstraintViolation
-	}
-	return false
-}
-
 func IsUniqueConstraintErr(err error) bool {
-	serr, ok := err.(*sqlite.Error)
+	serr, ok := err.(*pgconn.PgError)
 	if ok {
-		return serr.Code() == UniqueConstraintViolation
+		return serr.Code == UniqueConstraintViolation
 	}
 	return false
-}
-
-func InitDatabase(ctx context.Context, db *db.DB) (err error) {
-
-	return nil
 }

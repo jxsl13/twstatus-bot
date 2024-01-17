@@ -13,12 +13,15 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	b.db.Lock()
-	defer b.db.Unlock()
+func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
+	q, closer, err := b.ConnQueries(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+	defer closer()
 
 	guildId := data.Event.GuildID
-	channels, err := dao.ListChannels(ctx, b.queries, guildId)
+	channels, err := dao.ListChannels(ctx, q, guildId)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -30,10 +33,7 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) *api.
 }
 
 func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -44,14 +44,12 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
 	channel := model.Channel{
 		GuildID: data.Event.GuildID,
 		ID:      optionalChannelID(data),
 		Running: false,
 	}
-	err = dao.AddChannel(ctx, queries, channel)
+	err = dao.AddChannel(ctx, q, channel)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -64,10 +62,7 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 }
 
 func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -78,19 +73,17 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
 	var (
 		guildID   = data.Event.GuildID
 		channelID = optionalChannelID(data)
 	)
 
-	channel, err := dao.GetChannel(ctx, queries, guildID, channelID)
+	channel, err := dao.GetChannel(ctx, q, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	trackings, err := dao.ListTrackingsByChannelID(ctx, queries, guildID, channelID)
+	trackings, err := dao.ListTrackingsByChannelID(ctx, q, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -107,7 +100,7 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 
 	err = dao.RemoveChannel(
 		ctx,
-		queries,
+		q,
 		guildID,
 		channelID,
 	)

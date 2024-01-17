@@ -56,7 +56,7 @@ func AddChannel(ctx context.Context, q *sqlc.Queries, channel model.Channel) (er
 		Running:   channel.Running,
 	})
 	if err != nil {
-		if IsPrimaryKeyConstraintErr(err) {
+		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: channel %s", ErrAlreadyExists, channel)
 		}
 		return fmt.Errorf("failed to insert channel %d: %w", channel.ID, err)

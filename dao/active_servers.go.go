@@ -2,6 +2,7 @@ package dao
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -185,7 +186,7 @@ func activeClients(ctx context.Context, q *sqlc.Queries, servers map[model.Messa
 func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) error {
 	flags, err := q.ListFlags(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to list flags: %w", err)
 	}
 
 	knownFlags := make(map[int16]bool)
@@ -195,17 +196,20 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 
 	err = q.DeleteActiveServerClients(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete active server clients: %w", err)
 	}
 
 	err = q.DeleteActiveServers(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete active servers: %w", err)
 	}
 
 	for _, server := range servers {
 		err = q.InsertActiveServers(ctx, sqlc.InsertActiveServersParams{
-			Timestamp:    pgtype.Timestamptz{Time: server.Timestamp},
+			Timestamp: pgtype.Timestamptz{
+				Time:  server.Timestamp,
+				Valid: true,
+			},
 			Address:      server.Address,
 			Protocols:    server.ProtocolsJSON(),
 			Name:         server.Name,
@@ -220,7 +224,7 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 			ScoreKind:    server.ScoreKind,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to insert server: %w", err)
 		}
 
 		for _, client := range server.Clients {
@@ -245,7 +249,7 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 			})
 
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to insert client: %w", err)
 			}
 		}
 	}

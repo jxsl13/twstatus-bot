@@ -2,15 +2,15 @@ version: "2"
 sql:
   - engine: "postgresql"
     queries: [
-      "sql/active_servers.sql",
-      "sql/channel.sql",
-      "sql/flag_mappings.sql",
-      "sql/flags.sql",
-      "sql/guild.sql",
-      "sql/player_count_notification.sql",
-      "sql/prev_active_servers.sql",
-      "sql/prev_mentions.sql",
-      "sql/tracking.sql"
+      "queries/active_servers.sql",
+      "queries/channel.sql",
+      "queries/flag_mappings.sql",
+      "queries/flags.sql",
+      "queries/guild.sql",
+      "queries/player_count_notification.sql",
+      "queries/prev_active_servers.sql",
+      "queries/prev_mentions.sql",
+      "queries/tracking.sql"
     ]
     schema: [
       "migrations/001_schema.sql",

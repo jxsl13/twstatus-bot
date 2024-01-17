@@ -26,7 +26,6 @@ type ActiveServer struct {
 
 type ActiveServerClient struct {
 	ID        int64  `db:"id"`
-	MessageID int64  `db:"message_id"`
 	Address   string `db:"address"`
 	Name      string `db:"name"`
 	Clan      string `db:"clan"`

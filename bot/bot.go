@@ -2,7 +2,6 @@ package bot
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -280,7 +279,6 @@ type Bot struct {
 	ctx             context.Context
 	state           *state.State
 	db              *db.DB
-	queries         *sqlc.Queries
 	superAdmins     []discord.UserID
 	useEmbeds       bool
 	guildID         discord.GuildID
@@ -314,7 +312,6 @@ func New(
 		ctx:             ctx,
 		state:           s,
 		db:              db,
-		queries:         sqlc.New(db.DB),
 		superAdmins:     superAdmins,
 		useEmbeds:       !legacyMessageFormat,
 		c:               make(chan model.ChangedServerStatus, 1024),
@@ -407,7 +404,6 @@ func (b *Bot) Connect(ctx context.Context) error {
 
 func (b *Bot) Close() error {
 	return errors.Join(
-		b.queries.Close(),
 		b.state.Close(),
 	)
 }
@@ -439,32 +435,27 @@ func errorResponse(err error) *api.InteractionResponseData {
 	}
 }
 
-// Tx returns a transaction and a closer function.
-func (b *Bot) Tx(ctx context.Context) (*sql.Tx, func(error) error, error) {
-	closer := func(err error) error { return err }
-	tx, err := b.db.BeginTx(ctx, nil)
+func (b *Bot) TxQueries(ctx context.Context) (q *sqlc.Queries, closer func(error) error, err error) {
+	tx, closer, err := b.db.Tx(ctx)
 	if err != nil {
-		return nil, closer, err
+		return nil, nil, err
 	}
+	return sqlc.New(tx), closer, nil
+}
 
-	return tx, func(err error) error {
-		if err != nil {
-			return errors.Join(err, tx.Rollback())
-		}
-		return tx.Commit()
-	}, nil
+func (b *Bot) ConnQueries(ctx context.Context) (q *sqlc.Queries, closer func(), err error) {
+	c, f, err := b.db.Conn(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return sqlc.New(c), f, nil
 }
 
 func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	queries, closer, err := b.TxQueries(ctx)
 	defer func() {
 		err = closer(err)
 	}()
-
-	queries := b.queries.WithTx(tx)
 
 	err = dao.RemovePlayerCountNotifications(ctx, queries)
 	if err != nil {

@@ -68,14 +68,7 @@ func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) 
 		return fmt.Errorf("channel %s is not known", tracking.ChannelID)
 	}
 
-	found, err := ExistsServer(ctx, q, tracking.Address)
-	if err != nil {
-		return err
-	}
-	if !found {
-		return fmt.Errorf("server %s does not exist", tracking.Address)
-	}
-
+	// also allow tracking servers that are currently offline
 	err = q.AddTracking(ctx, sqlc.AddTrackingParams{
 		GuildID:   int64(tracking.GuildID),
 		ChannelID: int64(tracking.ChannelID),
@@ -89,7 +82,6 @@ func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) 
 		return fmt.Errorf("failed to insert tracking for %s: %w", tracking.Address, err)
 	}
 	return nil
-
 }
 
 func RemoveTrackingByMessageID(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, messageID discord.MessageID) (err error) {

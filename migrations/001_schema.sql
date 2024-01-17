@@ -109,9 +109,6 @@ CREATE TABLE IF NOT EXISTS active_servers (
 
 CREATE TABLE IF NOT EXISTS active_server_clients (
 	id BIGSERIAL PRIMARY KEY NOT NULL,
-	message_id BIGINT NOT NULL
-		REFERENCES tracking(message_id)
-		ON DELETE CASCADE,
 	address VARCHAR(64) NOT NULL
 		REFERENCES active_servers(address)
 		ON DELETE CASCADE,
@@ -172,3 +169,20 @@ CREATE TABLE IF NOT EXISTS prev_active_server_clients (
 	flag_abbr VARCHAR(64) NOT NULL,
 	flag_emoji VARCHAR(64) NOT NULL
 );
+
+---- create above / drop below ----
+
+DROP TABLE IF EXISTS prev_active_server_clients;
+DROP TABLE IF EXISTS prev_active_servers;
+DROP TABLE IF EXISTS active_server_clients;
+DROP TABLE IF EXISTS active_servers;
+DROP TABLE IF EXISTS player_count_notifications;
+DROP TABLE IF EXISTS prev_message_mentions;
+DROP TABLE IF EXISTS tracking;
+DROP TABLE IF EXISTS flag_mappings;
+DROP TABLE IF EXISTS flags;
+DROP TABLE IF EXISTS channels;
+DROP TABLE IF EXISTS guilds;
+DROP TYPE IF EXISTS scorekind;
+
+-- DROP TABLE IF EXISTS schema_migrations;

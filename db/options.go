@@ -1,36 +1,52 @@
 package db
 
-import "io/fs"
+import (
+	"io/fs"
+	"time"
+)
 
 type Options struct {
-	ssl          bool
+	sslmode      SSLMode
 	migrationsFs fs.FS
 	versionTable string
+	connTimeout  time.Duration
 }
 
-func (o *Options) SSL() string {
-	if o.ssl {
-		return "disable"
-	}
-	return "enable"
-}
+type Option func(*Options) error
 
-type Option func(*Options)
-
-func WithSSL(ssl bool) Option {
-	return func(o *Options) {
-		o.ssl = ssl
+func WithSSL(ssl SSLMode) Option {
+	return func(o *Options) error {
+		var sslmode SSLMode
+		err := sslmode.UnmarshalText([]byte(ssl))
+		if err != nil {
+			return err
+		}
+		o.sslmode = sslmode
+		return nil
 	}
 }
 
 func WithMigrationsFs(migrationsFs fs.FS) Option {
-	return func(o *Options) {
+	return func(o *Options) error {
 		o.migrationsFs = migrationsFs
+		return nil
 	}
 }
 
 func WithVersionTable(versionTable string) Option {
-	return func(o *Options) {
+	return func(o *Options) error {
 		o.versionTable = versionTable
+		return nil
+	}
+}
+
+func WithConnTimeout(connTimeout time.Duration) Option {
+	return func(o *Options) error {
+		if connTimeout < time.Second*1 {
+			o.connTimeout = time.Second * 1
+		} else {
+			o.connTimeout = connTimeout
+		}
+		return nil
 	}
 }

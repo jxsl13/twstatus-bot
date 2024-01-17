@@ -13,10 +13,7 @@ import (
 
 // optional channel id parameter
 func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -27,10 +24,8 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
 	channel, err := dao.StartChannel(ctx,
-		queries,
+		q,
 		data.Event.GuildID,
 		optionalChannelID(data),
 	)
@@ -47,10 +42,7 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 
 // optional channel id parameter
 func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	b.db.Lock()
-	defer b.db.Unlock()
-
-	tx, closer, err := b.Tx(ctx)
+	q, closer, err := b.TxQueries(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -61,10 +53,8 @@ func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp 
 		}
 	}()
 
-	queries := b.queries.WithTx(tx)
-
 	channel, err := dao.StopChannel(ctx,
-		queries,
+		q,
 		data.Event.GuildID,
 		optionalChannelID(data),
 	)

@@ -121,10 +121,13 @@ func addPrevActiveServers(
 
 	for t, s := range servers {
 		err = q.AddPrevActiveServer(ctx, sqlc.AddPrevActiveServerParams{
-			MessageID:    int64(t.MessageID),
-			GuildID:      int64(t.GuildID),
-			ChannelID:    int64(t.ChannelID),
-			Timestamp:    pgtype.Timestamptz{Time: s.Timestamp},
+			MessageID: int64(t.MessageID),
+			GuildID:   int64(t.GuildID),
+			ChannelID: int64(t.ChannelID),
+			Timestamp: pgtype.Timestamptz{
+				Time:  s.Timestamp,
+				Valid: true,
+			},
 			Address:      s.Address,
 			Protocols:    s.ProtocolsJSON(),
 			Name:         s.Name,

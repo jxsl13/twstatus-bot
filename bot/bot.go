@@ -7,6 +7,7 @@ import (
 	"log"
 	"runtime"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/api"
@@ -325,33 +326,38 @@ func New(
 		gateway.IntentGuilds | gateway.IntentGuildMessages | gateway.IntentGuildMessageReactions,
 	)
 
+	var startupOnce sync.Once
 	s.AddHandler(func(*gateway.ReadyEvent) {
-		me, err := s.Me()
-		if err != nil {
-			log.Fatalf("failed to get bot user: %v", err)
-		}
-		bot.userID = me.ID
+		// it's possible that the bot occasionally looses the gateway connection
+		// calling this heavy weight function on every reconnect is not ideal
+		startupOnce.Do(func() {
+			me, err := s.Me()
+			if err != nil {
+				log.Fatalf("failed to get bot user: %v", err)
+			}
+			bot.userID = me.ID
 
-		log.Println("connected to the gateway as", me.Tag())
-		src, dst, err := bot.updateServers()
-		if err != nil {
-			log.Printf("failed to initialize server list: %v", err)
-		} else {
-			log.Printf("initialized server list with %d source and %d target servers", src, dst)
-		}
+			log.Println("connected to the gateway as", me.Tag())
+			src, dst, err := bot.updateServers()
+			if err != nil {
+				log.Printf("failed to initialize server list: %v", err)
+			} else {
+				log.Printf("initialized server list with %d source and %d target servers", src, dst)
+			}
 
-		// sync trackings and player notification requests
-		err = bot.syncDatabaseState(ctx)
-		if err != nil {
-			log.Fatalf("failed to synchronize database with discord state: %v", err)
-		}
+			// sync trackings and player notification requests
+			err = bot.syncDatabaseState(ctx)
+			if err != nil {
+				log.Fatalf("failed to synchronize database with discord state: %v", err)
+			}
 
-		// start polling
-		go bot.cacheCleanup()
-		go bot.serverUpdater(pollingInterval)
-		for i := 0; i < max(runtime.NumCPU(), 2); i++ {
-			go bot.messageUpdater(i + 1)
-		}
+			// start polling
+			go bot.cacheCleanup()
+			go bot.serverUpdater(pollingInterval)
+			for i := 0; i < max(2*runtime.NumCPU(), 5); i++ {
+				go bot.messageUpdater(i + 1)
+			}
+		})
 	})
 
 	// requires guild message intents

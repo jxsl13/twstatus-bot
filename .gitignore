@@ -1,4 +1,5 @@
 .env
+*.env
 twstatus-bot
 .DS_Store
 *.db

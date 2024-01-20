@@ -33,13 +33,13 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 
 	q, closer, err := b.TxQueries(b.ctx)
 	if err != nil {
-		log.Printf("failed to get transaction queries for player count notification: %v", err)
+		b.Errorf("failed to get transaction queries for player count notification: %v", err)
 		return
 	}
 	defer func() {
 		err = closer(err)
 		if err != nil {
-			log.Printf("failed to close transaction queries for player count notification: %v", err)
+			b.Errorf("failed to close transaction queries for player count notification: %v", err)
 		}
 	}()
 
@@ -49,13 +49,13 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		if errors.Is(err, dao.ErrNotFound) {
 			err = dao.SetPlayerCountNotification(b.ctx, q, n)
 			if err != nil {
-				log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
+				b.Errorf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 				return
 			}
 			log.Printf("added %d player count notification for user %s and message %s", n.Threshold, e.UserID, n.MessageTarget)
 			return
 		} else {
-			log.Printf("failed to get player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
+			b.Errorf("failed to get player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 			return
 		}
 	}
@@ -72,13 +72,13 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 
 	err = b.state.DeleteUserReaction(e.ChannelID, e.MessageID, e.UserID, prevEmoji)
 	if err != nil {
-		log.Printf("failed to delete previous reaction: %v", err)
+		b.Errorf("failed to delete previous reaction: %v", err)
 		return
 	}
 
 	err = dao.SetPlayerCountNotification(b.ctx, q, n)
 	if err != nil {
-		log.Printf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
+		b.Errorf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
 	}
 
@@ -109,14 +109,14 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 
 	q, closer, err := b.ConnQueries(b.ctx)
 	if err != nil {
-		log.Printf("failed to get connection queries for player count notification: %v", err)
+		b.Errorf("failed to get connection queries for player count notification: %v", err)
 		return
 	}
 	defer closer()
 
 	err = dao.RemovePlayerCountNotification(b.ctx, q, n)
 	if err != nil {
-		log.Printf("failed to remove player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
+		b.Errorf("failed to remove player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
 	}
 	log.Printf("removed %d player count notification for user %s and message %s", val, e.UserID, n.MessageTarget)

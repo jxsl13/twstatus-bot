@@ -3,7 +3,6 @@ package bot
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/diamondburned/arikawa/v3/api"
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
@@ -95,7 +94,7 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 
 	delErr := b.state.DeleteMessages(channelID, msgIDs, "channel was removed")
 	if delErr != nil {
-		log.Printf("failed to delete messages: %v", delErr)
+		b.Errorf("failed to delete messages: %v", delErr)
 	}
 
 	err = dao.RemoveChannel(

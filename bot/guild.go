@@ -122,7 +122,7 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
 	q, closer, err := b.ConnQueries(b.ctx)
 	if err != nil {
-		log.Printf("failed to create transaction for addition of guild %s: %v", e.ID, err)
+		b.Errorf("failed to create transaction for addition of guild %s: %v", e.ID, err)
 		return
 	}
 	defer closer()
@@ -132,7 +132,7 @@ func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
 		Description: e.Name,
 	})
 	if err != nil && !errors.Is(err, dao.ErrAlreadyExists) {
-		log.Printf("failed to add guild %d (%s): %v", e.ID, e.Name, err)
+		b.Errorf("failed to add guild %d (%s): %v", e.ID, e.Name, err)
 	} else if errors.Is(err, dao.ErrAlreadyExists) {
 		log.Printf("guild %d (%s) already exists", e.ID, e.Name)
 	} else {
@@ -143,19 +143,19 @@ func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
 func (b *Bot) handleRemoveGuild(e *gateway.GuildDeleteEvent) {
 	q, closer, err := b.TxQueries(b.ctx)
 	if err != nil {
-		log.Printf("failed to create transaction for deletion of guild %d: %v", e.ID, err)
+		b.Errorf("failed to create transaction for deletion of guild %d: %v", e.ID, err)
 		return
 	}
 	defer func() {
 		err = closer(err)
 		if err != nil {
-			log.Printf("failed to close transaction for deletion of guild %d: %v", e.ID, err)
+			b.Errorf("failed to close transaction for deletion of guild %d: %v", e.ID, err)
 		}
 	}()
 
 	guild, err := dao.RemoveGuild(b.ctx, q, e.ID)
 	if err != nil {
-		log.Printf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
+		b.Errorf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
 	} else {
 		log.Printf("removed guild %d (%s)", e.ID, guild.Description)
 	}

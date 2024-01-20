@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"fmt"
 	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jxsl13/twstatus-bot/model"
@@ -23,14 +25,14 @@ func (b *Bot) serverUpdater(duration time.Duration) {
 			func() {
 				_, _, err := b.updateServers()
 				if err != nil {
-					log.Printf("failed to update servers: %v", err)
+					b.Errorf("failed to update servers: %v", err)
 					return
 				}
 
 				// publish changed servers
 				err = b.changedServers()
 				if err != nil {
-					log.Printf("failed to get changed server messages from db: %v", err)
+					b.Errorf("failed to get changed server messages from db: %v", err)
 					return
 				}
 			}()
@@ -55,7 +57,7 @@ loop:
 			}
 			err := b.updateDiscordMessage(server)
 			if err != nil {
-				log.Printf("goroutine %0d: failed to update discord message %v: %v", id, server.Target, err)
+				b.Errorf("goroutine %0d: failed to update discord message %v: %v", id, server.Target, err)
 			}
 
 		}
@@ -100,4 +102,59 @@ func (b *Bot) cacheCleanup() {
 			return
 		}
 	}
+}
+
+func (b *Bot) logWriter() {
+	for {
+		select {
+		case logEntry := <-b.logChan:
+			lvl := ""
+			switch logEntry.Level {
+			case slog.LevelError:
+				lvl = " [ERROR]: "
+			case slog.LevelWarn:
+				lvl = " [WARN]: "
+			case slog.LevelInfo:
+				lvl = " [INFO]: "
+			}
+
+			msg := fmt.Sprintf("%s%s",
+				lvl,
+				logEntry.Message,
+			)
+			log.Println(msg)
+			_, err := b.state.SendMessage(b.channelID, msg)
+			if err != nil {
+				log.Printf("failed to send log message: %v", err)
+				continue
+			}
+		case <-b.ctx.Done():
+			log.Println("closed async goroutine for log writer")
+			return
+		}
+	}
+}
+
+func (b *Bot) Logf(level slog.Level, format string, args ...any) {
+	select {
+	case b.logChan <- slog.Record{
+		Time:    time.Now(),
+		Level:   level,
+		Message: fmt.Sprintf(format, args...),
+	}:
+	case <-b.ctx.Done():
+		return
+	}
+}
+
+func (b *Bot) Errorf(format string, args ...any) {
+	b.Logf(slog.LevelError, format, args...)
+}
+
+func (b *Bot) Warnf(format string, args ...any) {
+	b.Logf(slog.LevelWarn, format, args...)
+}
+
+func (b *Bot) Infof(format string, args ...any) {
+	b.Logf(slog.LevelInfo, format, args...)
 }

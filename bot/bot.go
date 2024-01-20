@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"runtime"
 	"sort"
 	"sync"
@@ -288,6 +289,7 @@ type Bot struct {
 	c               chan model.ChangedServerStatus
 	pollingInterval time.Duration
 	conflictMap     *xsync.MapOf[model.MessageTarget, Backoff]
+	logChan         chan slog.Record
 }
 
 // New requires a discord bot token and returns a Bot instance.
@@ -320,6 +322,7 @@ func New(
 		pollingInterval: pollingInterval,
 		guildID:         guildID,
 		channelID:       channelID,
+		logChan:         make(chan slog.Record, 1024),
 	}
 
 	s.AddIntents(
@@ -337,12 +340,15 @@ func New(
 			}
 			bot.userID = me.ID
 
-			log.Println("connected to the gateway as", me.Tag())
+			// start logging routine
+			go bot.logWriter()
+
+			bot.Infof("connected to the gateway as %s", me.Tag())
 			src, dst, err := bot.updateServers()
 			if err != nil {
-				log.Printf("failed to initialize server list: %v", err)
+				bot.Errorf("failed to initialize server list: %v", err)
 			} else {
-				log.Printf("initialized server list with %d source and %d target servers", src, dst)
+				bot.Infof("initialized server list with %d source and %d target servers", src, dst)
 			}
 
 			// sync trackings and player notification requests

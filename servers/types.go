@@ -27,7 +27,7 @@ type Info struct {
 type Client struct {
 	Name     string `json:"name"`
 	Clan     string `json:"clan"`
-	Country  int16  `json:"country"`
+	Country  int64  `json:"country"`
 	Score    int32  `json:"score"`
 	IsPlayer bool   `json:"is_player"`
 	Skin     *Skin  `json:"skin,omitempty"`

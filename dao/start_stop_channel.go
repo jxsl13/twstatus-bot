@@ -9,8 +9,8 @@ import (
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func StartChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
-	channel, err := GetChannel(ctx, q, guildID, channelID)
+func (dao *DAO) StartChannel(ctx context.Context, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
+	channel, err := dao.GetChannel(ctx, guildID, channelID)
 	if err != nil {
 		return c, err
 	}
@@ -19,7 +19,7 @@ func StartChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID,
 		return c, fmt.Errorf("channel %s is already active", channel)
 	}
 
-	err = q.StartChannel(ctx, sqlc.StartChannelParams{
+	err = dao.q.StartChannel(ctx, sqlc.StartChannelParams{
 		GuildID:   int64(guildID),
 		ChannelID: int64(channelID),
 	})
@@ -29,8 +29,8 @@ func StartChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID,
 	return channel, nil
 }
 
-func StopChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
-	channel, err := GetChannel(ctx, q, guildID, channelID)
+func (dao *DAO) StopChannel(ctx context.Context, guildID discord.GuildID, channelID discord.ChannelID) (c model.Channel, err error) {
+	channel, err := dao.GetChannel(ctx, guildID, channelID)
 	if err != nil {
 		return c, err
 	}
@@ -39,7 +39,7 @@ func StopChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, 
 		return c, fmt.Errorf("channel %s is already inactive", channel)
 	}
 
-	err = q.StopChannel(ctx, sqlc.StopChannelParams{
+	err = dao.q.StopChannel(ctx, sqlc.StopChannelParams{
 		GuildID:   int64(guildID),
 		ChannelID: int64(channelID),
 	})

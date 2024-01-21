@@ -11,7 +11,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/gateway"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
+	d "github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
@@ -20,13 +20,13 @@ func (b *Bot) listGuilds(ctx context.Context, data cmdroute.CommandData) *api.In
 		return ErrAccessForbidden()
 	}
 
-	q, closer, err := b.ConnQueries(ctx)
+	dao, closer, err := b.ConnDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
 	defer closer()
 
-	guilds, err := dao.ListGuilds(ctx, q)
+	guilds, err := dao.ListGuilds(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -61,13 +61,13 @@ func (b *Bot) addGuildCommand(ctx context.Context, data cmdroute.CommandData) *a
 		return errorResponse(err)
 	}
 
-	q, closer, err := b.ConnQueries(ctx)
+	dao, closer, err := b.ConnDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
 	defer closer()
 
-	err = dao.AddGuild(ctx, q, model.Guild{
+	err = dao.AddGuild(ctx, model.Guild{
 		ID:          id,
 		Description: opts.Description,
 	})
@@ -96,7 +96,7 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 		id = data.Event.GuildID
 	}
 
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -107,7 +107,7 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 		}
 	}()
 
-	guild, err := dao.RemoveGuild(ctx, q, id)
+	guild, err := dao.RemoveGuild(ctx, id)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -120,20 +120,20 @@ func (b *Bot) removeGuildCommand(ctx context.Context, data cmdroute.CommandData)
 }
 
 func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
-	q, closer, err := b.ConnQueries(b.ctx)
+	dao, closer, err := b.ConnDAO(b.ctx)
 	if err != nil {
-		b.Errorf("failed to create transaction for addition of guild %s: %v", e.ID, err)
+		b.l.Errorf("failed to create transaction for addition of guild %s: %v", e.ID, err)
 		return
 	}
 	defer closer()
 
-	err = dao.AddGuild(b.ctx, q, model.Guild{
+	err = dao.AddGuild(b.ctx, model.Guild{
 		ID:          e.ID,
 		Description: e.Name,
 	})
-	if err != nil && !errors.Is(err, dao.ErrAlreadyExists) {
-		b.Errorf("failed to add guild %d (%s): %v", e.ID, e.Name, err)
-	} else if errors.Is(err, dao.ErrAlreadyExists) {
+	if err != nil && !errors.Is(err, d.ErrAlreadyExists) {
+		b.l.Errorf("failed to add guild %d (%s): %v", e.ID, e.Name, err)
+	} else if errors.Is(err, d.ErrAlreadyExists) {
 		log.Printf("guild %d (%s) already exists", e.ID, e.Name)
 	} else {
 		log.Printf("added guild %d (%s)", e.ID, e.Name)
@@ -141,21 +141,21 @@ func (b *Bot) handleAddGuild(e *gateway.GuildCreateEvent) {
 }
 
 func (b *Bot) handleRemoveGuild(e *gateway.GuildDeleteEvent) {
-	q, closer, err := b.TxQueries(b.ctx)
+	dao, closer, err := b.TxDAO(b.ctx)
 	if err != nil {
-		b.Errorf("failed to create transaction for deletion of guild %d: %v", e.ID, err)
+		b.l.Errorf("failed to create transaction for deletion of guild %d: %v", e.ID, err)
 		return
 	}
 	defer func() {
 		err = closer(err)
 		if err != nil {
-			b.Errorf("failed to close transaction for deletion of guild %d: %v", e.ID, err)
+			b.l.Errorf("failed to close transaction for deletion of guild %d: %v", e.ID, err)
 		}
 	}()
 
-	guild, err := dao.RemoveGuild(b.ctx, q, e.ID)
+	guild, err := dao.RemoveGuild(b.ctx, e.ID)
 	if err != nil {
-		b.Errorf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
+		b.l.Errorf("failed to remove guild %d (%s): %v", e.ID, guild.Description, err)
 	} else {
 		log.Printf("removed guild %d (%s)", e.ID, guild.Description)
 	}

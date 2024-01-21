@@ -9,8 +9,8 @@ import (
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ListAllTrackings(ctx context.Context, q *sqlc.Queries) (trackings model.Trackings, err error) {
-	latr, err := q.ListAllTrackings(ctx)
+func (dao *DAO) ListAllTrackings(ctx context.Context) (trackings model.Trackings, err error) {
+	latr, err := dao.q.ListAllTrackings(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get trackings: %w", err)
 	}
@@ -32,8 +32,8 @@ func ListAllTrackings(ctx context.Context, q *sqlc.Queries) (trackings model.Tra
 	return result, nil
 }
 
-func ListTrackingsByChannelID(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
-	latr, err := q.ListChannelTrackings(ctx, sqlc.ListChannelTrackingsParams{
+func (dao *DAO) ListTrackingsByChannelID(ctx context.Context, guildID discord.GuildID, channelID discord.ChannelID) (trackings model.Trackings, err error) {
+	latr, err := dao.q.ListChannelTrackings(ctx, sqlc.ListChannelTrackingsParams{
 		GuildID:   int64(guildID),
 		ChannelID: int64(channelID),
 	})
@@ -56,8 +56,8 @@ func ListTrackingsByChannelID(ctx context.Context, q *sqlc.Queries, guildID disc
 	return result, nil
 }
 
-func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) (err error) {
-	cs, err := q.GetChannel(ctx, sqlc.GetChannelParams{
+func (dao *DAO) AddTracking(ctx context.Context, tracking model.Tracking) (err error) {
+	cs, err := dao.q.GetChannel(ctx, sqlc.GetChannelParams{
 		GuildID:   int64(tracking.GuildID),
 		ChannelID: int64(tracking.ChannelID),
 	})
@@ -69,7 +69,7 @@ func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) 
 	}
 
 	// also allow tracking servers that are currently offline
-	err = q.AddTracking(ctx, sqlc.AddTrackingParams{
+	err = dao.q.AddTracking(ctx, sqlc.AddTrackingParams{
 		GuildID:   int64(tracking.GuildID),
 		ChannelID: int64(tracking.ChannelID),
 		Address:   tracking.Address,
@@ -84,8 +84,8 @@ func AddTracking(ctx context.Context, q *sqlc.Queries, tracking model.Tracking) 
 	return nil
 }
 
-func RemoveTrackingByMessageID(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, messageID discord.MessageID) (err error) {
-	err = q.RemoveTrackingByMessageId(
+func (dao *DAO) RemoveTrackingByMessageID(ctx context.Context, guildID discord.GuildID, messageID discord.MessageID) (err error) {
+	err = dao.q.RemoveTrackingByMessageId(
 		ctx,
 		sqlc.RemoveTrackingByMessageIdParams{
 			GuildID:   int64(guildID),

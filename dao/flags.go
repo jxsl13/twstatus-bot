@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/jxsl13/twstatus-bot/model"
-	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ListFlags(ctx context.Context, q *sqlc.Queries) (_ []model.Flag, err error) {
-	fs, err := q.ListFlags(ctx)
+func (dao *DAO) ListFlags(ctx context.Context) (_ []model.Flag, err error) {
+	fs, err := dao.q.ListFlags(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query flags: %w", err)
 	}
@@ -24,8 +23,8 @@ func ListFlags(ctx context.Context, q *sqlc.Queries) (_ []model.Flag, err error)
 	return flags, nil
 }
 
-func GetFlag(ctx context.Context, q *sqlc.Queries, flagId int16) (_ model.Flag, err error) {
-	fs, err := q.GetFlag(ctx, flagId)
+func (dao *DAO) GetFlag(ctx context.Context, flagId int16) (_ model.Flag, err error) {
+	fs, err := dao.q.GetFlag(ctx, flagId)
 	if err != nil {
 		return model.Flag{}, fmt.Errorf("failed to query flag: %w", err)
 	}
@@ -41,8 +40,8 @@ func GetFlag(ctx context.Context, q *sqlc.Queries, flagId int16) (_ model.Flag, 
 	}, nil
 }
 
-func GetFlagByAbbr(ctx context.Context, q *sqlc.Queries, abbr string) (_ model.Flag, err error) {
-	fs, err := q.GetFlagByAbbr(ctx, abbr)
+func (dao *DAO) GetFlagByAbbr(ctx context.Context, abbr string) (_ model.Flag, err error) {
+	fs, err := dao.q.GetFlagByAbbr(ctx, abbr)
 	if err != nil {
 		return model.Flag{}, fmt.Errorf("failed to query flag: %w", err)
 	}

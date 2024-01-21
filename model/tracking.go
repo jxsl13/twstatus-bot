@@ -11,6 +11,7 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/markdown"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 	"github.com/jxsl13/twstatus-bot/utils"
 	"github.com/mattn/go-runewidth"
 )
@@ -20,6 +21,16 @@ import (
 type Tracking struct {
 	MessageTarget
 	Address string // ipv4:port or [ipv6]:port
+}
+
+// to AddSQLC
+func (t Tracking) ToAddSQLC() sqlc.AddTrackingParams {
+	return sqlc.AddTrackingParams{
+		GuildID:   int64(t.GuildID),
+		ChannelID: int64(t.ChannelID),
+		MessageID: int64(t.MessageID),
+		Address:   t.Address,
+	}
 }
 
 type Trackings []Tracking

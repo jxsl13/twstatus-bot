@@ -11,7 +11,7 @@ import (
 )
 
 // TODO: continue here
-func ChangedMessageMentions(
+func (dao *DAO) ChangedMessageMentions(
 	ctx context.Context,
 	tx *sql.Tx,
 	currentMentions model.MessageMentions,
@@ -27,7 +27,7 @@ func ChangedMessageMentions(
 	return messageMentions, nil
 }
 
-func ListPrevMessageMentions(ctx context.Context, q *sqlc.Queries) (messageMentions model.MessageMentions, err error) {
+func (dao *DAO) ListPrevMessageMentions(ctx context.Context, q *sqlc.Queries) (messageMentions model.MessageMentions, err error) {
 	pmm, err := q.ListPreviousMessageMentions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query previous message mentions: %w", err)
@@ -52,7 +52,7 @@ func ListPrevMessageMentions(ctx context.Context, q *sqlc.Queries) (messageMenti
 	return messageMentions, nil
 }
 
-func RemoveMessageMentions(ctx context.Context, q *sqlc.Queries, mts []model.MessageTarget) (err error) {
+func (dao *DAO) RemoveMessageMentions(ctx context.Context, q *sqlc.Queries, mts []model.MessageTarget) (err error) {
 	for _, mt := range mts {
 		err = q.RemoveMessageMentions(ctx, sqlc.RemoveMessageMentionsParams{
 			GuildID:   int64(mt.GuildID),

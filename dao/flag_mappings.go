@@ -9,9 +9,8 @@ import (
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ListFlagMappings(
+func (dao *DAO) ListFlagMappings(
 	ctx context.Context,
-	q *sqlc.Queries,
 	guildId discord.GuildID,
 	channelId discord.ChannelID,
 ) (
@@ -19,7 +18,7 @@ func ListFlagMappings(
 	err error,
 ) {
 
-	fms, err := q.ListFlagMappings(ctx, sqlc.ListFlagMappingsParams{
+	fms, err := dao.q.ListFlagMappings(ctx, sqlc.ListFlagMappingsParams{
 		GuildID:   int64(guildId),
 		ChannelID: int64(channelId),
 	})
@@ -40,13 +39,12 @@ func ListFlagMappings(
 	return result, nil
 }
 
-func AddFlagMapping(ctx context.Context, q *sqlc.Queries, mapping model.FlagMapping) (err error) {
-	return q.AddFlagMapping(ctx, mapping.ToAddSQLC())
+func (dao *DAO) AddFlagMapping(ctx context.Context, mapping model.FlagMapping) (err error) {
+	return dao.q.AddFlagMapping(ctx, mapping.ToAddSQLC())
 }
 
-func GetFlagMapping(
+func (dao *DAO) GetFlagMapping(
 	ctx context.Context,
-	q *sqlc.Queries,
 	guildId discord.GuildID,
 	channelId discord.ChannelID,
 	flagId int16,
@@ -55,7 +53,7 @@ func GetFlagMapping(
 	err error,
 ) {
 
-	fm, err := q.GetFlagMapping(ctx, sqlc.GetFlagMappingParams{
+	fm, err := dao.q.GetFlagMapping(ctx, sqlc.GetFlagMappingParams{
 		GuildID:   int64(guildId),
 		ChannelID: int64(channelId),
 		FlagID:    flagId,
@@ -76,15 +74,14 @@ func GetFlagMapping(
 	}, nil
 }
 
-func RemoveFlagMapping(
+func (dao *DAO) RemoveFlagMapping(
 	ctx context.Context,
-	q *sqlc.Queries,
 	guildId discord.GuildID,
 	channelId discord.ChannelID,
 	abbr string,
 ) (err error) {
 
-	flag, err := q.GetFlagByAbbr(ctx, abbr)
+	flag, err := dao.q.GetFlagByAbbr(ctx, abbr)
 	if err != nil {
 		return err
 	}
@@ -92,7 +89,7 @@ func RemoveFlagMapping(
 		return fmt.Errorf("%w: flag %s", ErrNotFound, abbr)
 	}
 	f := flag[0]
-	return q.RemoveFlagMapping(ctx, sqlc.RemoveFlagMappingParams{
+	return dao.q.RemoveFlagMapping(ctx, sqlc.RemoveFlagMappingParams{
 		GuildID:   int64(guildId),
 		ChannelID: int64(channelId),
 		FlagID:    f.FlagID,

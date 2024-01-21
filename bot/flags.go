@@ -9,17 +9,16 @@ import (
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
 )
 
 func (b *Bot) listFlags(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	q, closer, err := b.ConnQueries(ctx)
+	dao, closer, err := b.ConnDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
 	defer closer()
 
-	flags, err := dao.ListFlags(ctx, q)
+	flags, err := dao.ListFlags(ctx)
 
 	if err != nil {
 		return errorResponse(err)

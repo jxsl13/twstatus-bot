@@ -9,8 +9,8 @@ import (
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func GetChannel(ctx context.Context, q *sqlc.Queries, guildId discord.GuildID, channelID discord.ChannelID) (_ model.Channel, err error) {
-	runnings, err := q.GetChannel(ctx, sqlc.GetChannelParams{
+func (dao *DAO) GetChannel(ctx context.Context, guildId discord.GuildID, channelID discord.ChannelID) (_ model.Channel, err error) {
+	runnings, err := dao.q.GetChannel(ctx, sqlc.GetChannelParams{
 		GuildID:   int64(guildId),
 		ChannelID: int64(channelID),
 	})
@@ -31,8 +31,8 @@ func GetChannel(ctx context.Context, q *sqlc.Queries, guildId discord.GuildID, c
 	}, nil
 }
 
-func ListChannels(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID) (model.Channels, error) {
-	channels, err := q.ListGuildChannels(ctx, int64(guildID))
+func (dao *DAO) ListChannels(ctx context.Context, guildID discord.GuildID) (model.Channels, error) {
+	channels, err := dao.q.ListGuildChannels(ctx, int64(guildID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to query channels: %w", err)
 	}
@@ -49,8 +49,8 @@ func ListChannels(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID)
 	return result, nil
 }
 
-func AddChannel(ctx context.Context, q *sqlc.Queries, channel model.Channel) (err error) {
-	err = q.AddGuildChannel(ctx, channel.ToSQLC())
+func (dao *DAO) AddChannel(ctx context.Context, channel model.Channel) (err error) {
+	err = dao.q.AddGuildChannel(ctx, channel.ToSQLC())
 	if err != nil {
 		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: channel %s", ErrAlreadyExists, channel)
@@ -60,8 +60,8 @@ func AddChannel(ctx context.Context, q *sqlc.Queries, channel model.Channel) (er
 	return nil
 }
 
-func RemoveChannel(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID, channelID discord.ChannelID) (err error) {
-	err = q.RemoveGuildChannel(ctx, sqlc.RemoveGuildChannelParams{
+func (dao *DAO) RemoveChannel(ctx context.Context, guildID discord.GuildID, channelID discord.ChannelID) (err error) {
+	err = dao.q.RemoveGuildChannel(ctx, sqlc.RemoveGuildChannelParams{
 		GuildID:   int64(guildID),
 		ChannelID: int64(channelID),
 	})

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
 var (
@@ -21,4 +22,14 @@ func IsUniqueConstraintErr(err error) bool {
 		return serr.Code == UniqueConstraintViolation
 	}
 	return false
+}
+
+func NewDAO(q *sqlc.Queries) *DAO {
+	return &DAO{
+		q: q,
+	}
+}
+
+type DAO struct {
+	q *sqlc.Queries
 }

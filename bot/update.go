@@ -13,7 +13,6 @@ import (
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/httputil"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/model"
 	"github.com/jxsl13/twstatus-bot/servers"
 )
@@ -35,7 +34,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 
 	start = time.Now()
 	err = func(srvs []model.Server) error {
-		q, closer, err := b.TxQueries(b.ctx)
+		dao, closer, err := b.TxDAO(b.ctx)
 		if err != nil {
 			return err
 		}
@@ -43,7 +42,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 			err = closer(err)
 		}()
 
-		err = dao.SetServers(b.ctx, q, srvs)
+		err = dao.SetServers(b.ctx, srvs)
 		if err != nil {
 			return err
 		}
@@ -60,7 +59,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 	dur := httpGet + convert + dbSet
 	log.Printf("updated %d source to %d target servers in %s", src, dst, dur)
 	if dur > b.pollingInterval {
-		b.Warnf(`updating servers took longer than the polling interval (%s > %s)
+		b.l.Warnf(`updating servers took longer than the polling interval (%s > %s)
 http request took   %s
 dto conversion took %s
 db transaction took %s
@@ -79,7 +78,7 @@ func (b *Bot) changedServers() error {
 	var producer chan<- model.ChangedServerStatus = b.c
 
 	servers, err := func() (map[model.MessageTarget]model.ChangedServerStatus, error) {
-		q, closer, err := b.TxQueries(b.ctx)
+		dao, closer, err := b.TxDAO(b.ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +86,7 @@ func (b *Bot) changedServers() error {
 			err = closer(err)
 		}()
 
-		return dao.ChangedServers(b.ctx, q)
+		return dao.ChangedServers(b.ctx)
 	}()
 	if err != nil {
 		return err
@@ -152,7 +151,7 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) (err error)
 		return err
 	}
 
-	b.Warnf("failed to update message %s: %v", target, herr)
+	b.l.Warnf("failed to update message %s: %v", target, herr)
 	editingTooFrequently := herr.Status == http.StatusTooManyRequests && herr.Code == 30046
 	if editingTooFrequently {
 		b.conflictMap.Compute(target, func(backoff Backoff, loaded bool) (newValue Backoff, delete bool) {
@@ -190,13 +189,13 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) (err error)
 
 	// message was somehow deleted without us noticing
 	// remove tracking for that message
-	q, closer, err := b.ConnQueries(b.ctx)
+	dao, closer, err := b.ConnDAO(b.ctx)
 	if err != nil {
 		return err
 	}
 	defer closer()
 
-	err = dao.RemoveTrackingByMessageID(b.ctx, q, target.GuildID, target.MessageID)
+	err = dao.RemoveTrackingByMessageID(b.ctx, target.GuildID, target.MessageID)
 	if err != nil {
 		return fmt.Errorf("failed to remove tracking of message id: %s: %w", target.MessageID, err)
 	}

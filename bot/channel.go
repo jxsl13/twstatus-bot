@@ -8,19 +8,18 @@ import (
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
 func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	q, closer, err := b.ConnQueries(ctx)
+	dao, closer, err := b.ConnDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
 	defer closer()
 
 	guildId := data.Event.GuildID
-	channels, err := dao.ListChannels(ctx, q, guildId)
+	channels, err := dao.ListChannels(ctx, guildId)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -32,7 +31,7 @@ func (b *Bot) listChannels(ctx context.Context, data cmdroute.CommandData) (resp
 }
 
 func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -48,7 +47,7 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 		ID:      optionalChannelID(data),
 		Running: false,
 	}
-	err = dao.AddChannel(ctx, q, channel)
+	err = dao.AddChannel(ctx, channel)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -61,7 +60,7 @@ func (b *Bot) addChannel(ctx context.Context, data cmdroute.CommandData) (resp *
 }
 
 func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -77,12 +76,12 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 		channelID = optionalChannelID(data)
 	)
 
-	channel, err := dao.GetChannel(ctx, q, guildID, channelID)
+	channel, err := dao.GetChannel(ctx, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}
 
-	trackings, err := dao.ListTrackingsByChannelID(ctx, q, guildID, channelID)
+	trackings, err := dao.ListTrackingsByChannelID(ctx, guildID, channelID)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -94,12 +93,11 @@ func (b *Bot) removeChannel(ctx context.Context, data cmdroute.CommandData) (res
 
 	delErr := b.state.DeleteMessages(channelID, msgIDs, "channel was removed")
 	if delErr != nil {
-		b.Errorf("failed to delete messages: %v", delErr)
+		b.l.Errorf("failed to delete messages: %v", delErr)
 	}
 
 	err = dao.RemoveChannel(
 		ctx,
-		q,
 		guildID,
 		channelID,
 	)

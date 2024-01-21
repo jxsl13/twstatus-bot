@@ -10,14 +10,14 @@ import (
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func PrevActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.MessageTarget]model.ServerStatus, err error) {
-	servers, err = prevActiveServers(ctx, q)
+func (dao *DAO) PrevActiveServers(ctx context.Context) (servers map[model.MessageTarget]model.ServerStatus, err error) {
+	servers, err = dao.prevActiveServers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	// enrich with clients
-	servers, err = prevActiveClients(ctx, q, servers)
+	servers, err = dao.prevActiveClients(ctx, servers)
 	if err != nil {
 		return nil, err
 	}
@@ -25,8 +25,8 @@ func PrevActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.
 	return servers, nil
 }
 
-func prevActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.MessageTarget]model.ServerStatus, err error) {
-	pas, err := q.ListPrevActiveServers(ctx)
+func (dao *DAO) prevActiveServers(ctx context.Context) (servers map[model.MessageTarget]model.ServerStatus, err error) {
+	pas, err := dao.q.ListPrevActiveServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get previous active servers: %w", err)
 	}
@@ -67,9 +67,8 @@ func prevActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.
 	return servers, nil
 }
 
-func prevActiveClients(
+func (dao *DAO) prevActiveClients(
 	ctx context.Context,
-	q *sqlc.Queries,
 	servers map[model.MessageTarget]model.ServerStatus,
 ) (
 	_ map[model.MessageTarget]model.ServerStatus,
@@ -84,7 +83,7 @@ func prevActiveClients(
 			target model.MessageTarget
 			client model.ClientStatus
 		)
-		rows, err := q.GetPrevActiveServerClients(ctx, int64(t.MessageID))
+		rows, err := dao.q.GetPrevActiveServerClients(ctx, int64(t.MessageID))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get previous active clients: %w", err)
 		}
@@ -113,14 +112,13 @@ func prevActiveClients(
 	return servers, nil
 }
 
-func addPrevActiveServers(
+func (dao *DAO) addPrevActiveServers(
 	ctx context.Context,
-	q *sqlc.Queries,
 	servers map[model.MessageTarget]model.ServerStatus,
 ) (err error) {
 
 	for t, s := range servers {
-		err = q.AddPrevActiveServer(ctx, sqlc.AddPrevActiveServerParams{
+		err = dao.q.AddPrevActiveServer(ctx, sqlc.AddPrevActiveServerParams{
 			MessageID: int64(t.MessageID),
 			GuildID:   int64(t.GuildID),
 			ChannelID: int64(t.ChannelID),
@@ -149,13 +147,13 @@ func addPrevActiveServers(
 	return nil
 }
 
-func removePrevActiveServers(ctx context.Context, q *sqlc.Queries, messageIds []discord.MessageID) (err error) {
+func (dao *DAO) removePrevActiveServers(ctx context.Context, messageIds []discord.MessageID) (err error) {
 	if len(messageIds) == 0 {
 		return nil
 	}
 
 	for _, id := range messageIds {
-		err = q.RemovePrevActiveServer(ctx, int64(id))
+		err = dao.q.RemovePrevActiveServer(ctx, int64(id))
 		if err != nil {
 			return fmt.Errorf("failed to delete previous active server: %w", err)
 		}
@@ -163,11 +161,11 @@ func removePrevActiveServers(ctx context.Context, q *sqlc.Queries, messageIds []
 	return nil
 }
 
-func addPrevActiveClients(ctx context.Context, q *sqlc.Queries, servers map[model.MessageTarget]model.ServerStatus) (err error) {
+func (dao *DAO) addPrevActiveClients(ctx context.Context, servers map[model.MessageTarget]model.ServerStatus) (err error) {
 
 	for target, server := range servers {
 		for _, client := range server.Clients {
-			err = q.AddPrevActiveServerClient(ctx, sqlc.AddPrevActiveServerClientParams{
+			err = dao.q.AddPrevActiveServerClient(ctx, sqlc.AddPrevActiveServerClientParams{
 				MessageID: int64(target.MessageID),
 				GuildID:   int64(target.GuildID),
 				ChannelID: int64(target.ChannelID),
@@ -189,13 +187,13 @@ func addPrevActiveClients(ctx context.Context, q *sqlc.Queries, servers map[mode
 	return nil
 }
 
-func removePrevActiveClients(ctx context.Context, q *sqlc.Queries, messageIds []discord.MessageID) (err error) {
+func (dao *DAO) removePrevActiveClients(ctx context.Context, messageIds []discord.MessageID) (err error) {
 	if len(messageIds) == 0 {
 		return nil
 	}
 
 	for _, id := range messageIds {
-		err = q.RemovePrevActiveServerClient(ctx, int64(id))
+		err = dao.q.RemovePrevActiveServerClient(ctx, int64(id))
 		if err != nil {
 			return err
 		}

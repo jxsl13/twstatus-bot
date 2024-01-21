@@ -8,12 +8,11 @@ import (
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
 )
 
 // optional channel id parameter
 func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -24,8 +23,8 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 		}
 	}()
 
-	channel, err := dao.StartChannel(ctx,
-		q,
+	channel, err := dao.StartChannel(
+		ctx,
 		data.Event.GuildID,
 		optionalChannelID(data),
 	)
@@ -42,7 +41,7 @@ func (b *Bot) startChannel(ctx context.Context, data cmdroute.CommandData) (resp
 
 // optional channel id parameter
 func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp *api.InteractionResponseData) {
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -54,7 +53,6 @@ func (b *Bot) stopChannel(ctx context.Context, data cmdroute.CommandData) (resp 
 	}()
 
 	channel, err := dao.StopChannel(ctx,
-		q,
 		data.Event.GuildID,
 		optionalChannelID(data),
 	)

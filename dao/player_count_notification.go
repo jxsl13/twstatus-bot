@@ -9,8 +9,8 @@ import (
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ListAllPlayerCountNotifications(ctx context.Context, q *sqlc.Queries) (notifications []model.PlayerCountNotification, err error) {
-	pcn, err := q.ListPlayerCountNotifications(ctx)
+func (dao *DAO) ListAllPlayerCountNotifications(ctx context.Context) (notifications []model.PlayerCountNotification, err error) {
+	pcn, err := dao.q.ListPlayerCountNotifications(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get player count notifications: %w", err)
 	}
@@ -33,9 +33,8 @@ func ListAllPlayerCountNotifications(ctx context.Context, q *sqlc.Queries) (noti
 	return result, nil
 }
 
-func GetTargetListNotifications(
+func (dao *DAO) GetTargetListNotifications(
 	ctx context.Context,
-	q *sqlc.Queries,
 	servers map[model.MessageTarget]model.ChangedServerStatus) (
 	_ map[model.MessageTarget]model.ChangedServerStatus,
 	err error,
@@ -43,7 +42,7 @@ func GetTargetListNotifications(
 
 	for t, server := range servers {
 
-		messageNotifications, err := q.GetMessageTargetNotifications(ctx,
+		messageNotifications, err := dao.q.GetMessageTargetNotifications(ctx,
 			sqlc.GetMessageTargetNotificationsParams{
 				GuildID:   int64(t.GuildID),
 				ChannelID: int64(t.ChannelID),
@@ -78,16 +77,15 @@ func GetTargetListNotifications(
 	return servers, nil
 }
 
-func GetPlayerCountNotification(
+func (dao *DAO) GetPlayerCountNotification(
 	ctx context.Context,
-	q *sqlc.Queries,
 	t model.MessageUserTarget,
 ) (
 	notification model.PlayerCountNotification,
 	err error,
 ) {
 
-	ns, err := q.GetPlayerCountNotification(ctx,
+	ns, err := dao.q.GetPlayerCountNotification(ctx,
 		sqlc.GetPlayerCountNotificationParams{
 			GuildID:   int64(t.GuildID),
 			ChannelID: int64(t.ChannelID),
@@ -117,10 +115,11 @@ func GetPlayerCountNotification(
 	}, nil
 
 }
-func SetPlayerCountNotificationList(ctx context.Context, q *sqlc.Queries, notifications []model.PlayerCountNotification) (err error) {
+
+func (dao *DAO) SetPlayerCountNotificationList(ctx context.Context, notifications []model.PlayerCountNotification) (err error) {
 
 	for _, n := range notifications {
-		err = q.SetPlayerCountNotification(ctx, sqlc.SetPlayerCountNotificationParams{
+		err = dao.q.SetPlayerCountNotification(ctx, sqlc.SetPlayerCountNotificationParams{
 			GuildID:   int64(n.GuildID),
 			ChannelID: int64(n.ChannelID),
 			MessageID: int64(n.MessageID),
@@ -133,16 +132,16 @@ func SetPlayerCountNotificationList(ctx context.Context, q *sqlc.Queries, notifi
 	return nil
 }
 
-func SetPlayerCountNotification(ctx context.Context, q *sqlc.Queries, n model.PlayerCountNotification) (err error) {
-	return q.SetPlayerCountNotification(ctx, n.ToSetSQLC())
+func (dao *DAO) SetPlayerCountNotification(ctx context.Context, n model.PlayerCountNotification) (err error) {
+	return dao.q.SetPlayerCountNotification(ctx, n.ToSetSQLC())
 
 }
 
-func RemovePlayerCountNotifications(ctx context.Context, q *sqlc.Queries) (err error) {
-	return q.RemovePlayerCountNotifications(ctx)
+func (dao *DAO) RemovePlayerCountNotifications(ctx context.Context) (err error) {
+	return dao.q.RemovePlayerCountNotifications(ctx)
 }
 
-func RemovePlayerCountNotification(ctx context.Context, q *sqlc.Queries, n model.PlayerCountNotification) (err error) {
-	return q.RemovePlayerCountNotification(ctx, n.ToRemoveSQLC())
+func (dao *DAO) RemovePlayerCountNotification(ctx context.Context, n model.PlayerCountNotification) (err error) {
+	return dao.q.RemovePlayerCountNotification(ctx, n.ToRemoveSQLC())
 
 }

@@ -6,16 +6,15 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
-	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ChangedServers(ctx context.Context, q *sqlc.Queries) (_ map[model.MessageTarget]model.ChangedServerStatus, err error) {
-	previousServers, err := PrevActiveServers(ctx, q)
+func (dao *DAO) ChangedServers(ctx context.Context) (_ map[model.MessageTarget]model.ChangedServerStatus, err error) {
+	previousServers, err := dao.PrevActiveServers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	currentServers, err := ActiveServers(ctx, q)
+	currentServers, err := dao.ActiveServers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -62,27 +61,27 @@ func ChangedServers(ctx context.Context, q *sqlc.Queries) (_ map[model.MessageTa
 	for target := range changedServers {
 		messageIDs = append(messageIDs, target.MessageID)
 	}
-	err = removePrevActiveServers(ctx, q, messageIDs)
+	err = dao.removePrevActiveServers(ctx, messageIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	err = removePrevActiveClients(ctx, q, messageIDs)
+	err = dao.removePrevActiveClients(ctx, messageIDs)
 	if err != nil {
 		return nil, err
 	}
 
-	err = addPrevActiveServers(ctx, q, added)
+	err = dao.addPrevActiveServers(ctx, added)
 	if err != nil {
 		return nil, err
 	}
 
-	err = addPrevActiveClients(ctx, q, added)
+	err = dao.addPrevActiveClients(ctx, added)
 	if err != nil {
 		return nil, err
 	}
 
-	changedServers, err = GetTargetListNotifications(ctx, q, changedServers)
+	changedServers, err = dao.GetTargetListNotifications(ctx, changedServers)
 	if err != nil {
 		return nil, err
 	}
@@ -90,22 +89,22 @@ func ChangedServers(ctx context.Context, q *sqlc.Queries) (_ map[model.MessageTa
 	return changedServers, nil
 }
 
-func ActiveServers(ctx context.Context, q *sqlc.Queries) (servers map[model.MessageTarget]model.ServerStatus, err error) {
+func (dao *DAO) ActiveServers(ctx context.Context) (servers map[model.MessageTarget]model.ServerStatus, err error) {
 
-	servers, err = activeServers(ctx, q)
+	servers, err = dao.activeServers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	servers, err = activeClients(ctx, q, servers)
+	servers, err = dao.activeClients(ctx, servers)
 	if err != nil {
 		return nil, err
 	}
 	return servers, nil
 }
 
-func activeServers(ctx context.Context, q *sqlc.Queries) (servers map[model.MessageTarget]model.ServerStatus, err error) {
-	ltsr, err := q.ListTrackedServers(ctx)
+func (dao *DAO) activeServers(ctx context.Context) (servers map[model.MessageTarget]model.ServerStatus, err error) {
+	ltsr, err := dao.q.ListTrackedServers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -143,12 +142,12 @@ func activeServers(ctx context.Context, q *sqlc.Queries) (servers map[model.Mess
 	return servers, nil
 }
 
-func activeClients(ctx context.Context, q *sqlc.Queries, servers map[model.MessageTarget]model.ServerStatus) (_ map[model.MessageTarget]model.ServerStatus, err error) {
+func (dao *DAO) activeClients(ctx context.Context, servers map[model.MessageTarget]model.ServerStatus) (_ map[model.MessageTarget]model.ServerStatus, err error) {
 	if len(servers) == 0 {
 		return map[model.MessageTarget]model.ServerStatus{}, nil
 	}
 
-	ltscr, err := q.ListTrackedServerClients(ctx)
+	ltscr, err := dao.q.ListTrackedServerClients(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -182,8 +181,8 @@ func activeClients(ctx context.Context, q *sqlc.Queries, servers map[model.Messa
 	return servers, nil
 }
 
-func SetServers(ctx context.Context, q *sqlc.Queries, servers model.ServerList) error {
-	flags, err := q.ListFlags(ctx)
+func (dao *DAO) SetServers(ctx context.Context, servers model.ServerList) error {
+	flags, err := dao.q.ListFlags(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list flags: %w", err)
 	}
@@ -193,18 +192,18 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers model.ServerList) 
 		knownFlags[flag.FlagID] = true
 	}
 
-	err = q.DeleteActiveServerClients(ctx)
+	err = dao.q.DeleteActiveServerClients(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete active server clients: %w", err)
 	}
 
-	err = q.DeleteActiveServers(ctx)
+	err = dao.q.DeleteActiveServers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete active servers: %w", err)
 	}
 
 	ss, cs := servers.ToSQLC(knownFlags)
-	i, err := q.InsertActiveServers(ctx, ss)
+	i, err := dao.q.InsertActiveServers(ctx, ss)
 	if err != nil {
 		return fmt.Errorf("failed to insert servers: %w", err)
 	}
@@ -212,7 +211,7 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers model.ServerList) 
 		return fmt.Errorf("failed to insert all servers: %d/%d", i, len(ss))
 	}
 
-	i, err = q.InsertActiveServerClients(ctx, cs)
+	i, err = dao.q.InsertActiveServerClients(ctx, cs)
 	if err != nil {
 		return fmt.Errorf("failed to insert clients: %w", err)
 	}
@@ -223,8 +222,8 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers model.ServerList) 
 	return nil
 }
 
-func ExistsServer(ctx context.Context, q *sqlc.Queries, address string) (found bool, err error) {
-	addr, err := q.ExistsServer(ctx, address)
+func (dao *DAO) ExistsServer(ctx context.Context, address string) (found bool, err error) {
+	addr, err := dao.q.ExistsServer(ctx, address)
 	if err != nil {
 		return false, err
 	}

@@ -23,14 +23,14 @@ func (b *Bot) serverUpdater(duration time.Duration) {
 			func() {
 				_, _, err := b.updateServers()
 				if err != nil {
-					b.Errorf("failed to update servers: %v", err)
+					b.l.Errorf("failed to update servers: %v", err)
 					return
 				}
 
 				// publish changed servers
 				err = b.changedServers()
 				if err != nil {
-					b.Errorf("failed to get changed server messages from db: %v", err)
+					b.l.Errorf("failed to get changed server messages from db: %v", err)
 					return
 				}
 			}()
@@ -55,7 +55,7 @@ loop:
 			}
 			err := b.updateDiscordMessage(server)
 			if err != nil {
-				b.Errorf("goroutine %0d: failed to update discord message %v: %v", id, server.Target, err)
+				b.l.Errorf("goroutine %0d: failed to update discord message %v: %v", id, server.Target, err)
 			}
 
 		}

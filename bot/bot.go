@@ -18,6 +18,7 @@ import (
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
 	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/db"
+	"github.com/jxsl13/twstatus-bot/logging"
 	"github.com/jxsl13/twstatus-bot/model"
 	"github.com/jxsl13/twstatus-bot/sqlc"
 	"github.com/jxsl13/twstatus-bot/utils"
@@ -288,7 +289,7 @@ type Bot struct {
 	c               chan model.ChangedServerStatus
 	pollingInterval time.Duration
 	conflictMap     *xsync.MapOf[model.MessageTarget, Backoff]
-	logChan         chan LogEntry
+	l               *logging.Logger
 }
 
 // New requires a discord bot token and returns a Bot instance.
@@ -321,7 +322,7 @@ func New(
 		pollingInterval: pollingInterval,
 		guildID:         guildID,
 		channelID:       channelID,
-		logChan:         make(chan LogEntry, 1024),
+		l:               logging.NewLogger(ctx),
 	}
 
 	s.AddIntents(
@@ -342,12 +343,12 @@ func New(
 			// start logging routine
 			go bot.logWriter()
 
-			bot.Infof("connected to the gateway as %s", me.Tag())
+			bot.l.Infof("connected to the gateway as %s", me.Tag())
 			src, dst, err := bot.updateServers()
 			if err != nil {
-				bot.Errorf("failed to initialize server list: %v", err)
+				bot.l.Errorf("failed to initialize server list: %v", err)
 			} else {
-				bot.Infof("initialized server list with %d source and %d target servers", src, dst)
+				bot.l.Infof("initialized server list with %d source and %d target servers", src, dst)
 			}
 
 			// sync trackings and player notification requests
@@ -446,34 +447,34 @@ func errorResponse(err error) *api.InteractionResponseData {
 	}
 }
 
-func (b *Bot) TxQueries(ctx context.Context) (q *sqlc.Queries, closer func(error) error, err error) {
+func (b *Bot) TxDAO(ctx context.Context) (d *dao.DAO, closer func(error) error, err error) {
 	tx, closer, err := b.db.Tx(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	return sqlc.New(tx), closer, nil
+	return dao.NewDAO(sqlc.New(tx)), closer, nil
 }
 
-func (b *Bot) ConnQueries(ctx context.Context) (q *sqlc.Queries, closer func(), err error) {
+func (b *Bot) ConnDAO(ctx context.Context) (d *dao.DAO, closer func(), err error) {
 	c, f, err := b.db.Conn(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	return sqlc.New(c), f, nil
+	return dao.NewDAO(sqlc.New(c)), f, nil
 }
 
 func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
-	queries, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	defer func() {
 		err = closer(err)
 	}()
 
-	err = dao.RemovePlayerCountNotifications(ctx, queries)
+	err = dao.RemovePlayerCountNotifications(ctx)
 	if err != nil {
 		return err
 	}
 
-	trackings, err := dao.ListAllTrackings(ctx, queries)
+	trackings, err := dao.ListAllTrackings(ctx)
 	if err != nil {
 		return err
 	}
@@ -487,7 +488,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 		if err != nil {
 			if ErrIsNotFound(err) || ErrIsAccessDenied(err) {
 				// remove tracking of messages that were removed during downtime.
-				err = dao.RemoveTrackingByMessageID(ctx, queries, t.GuildID, t.MessageID)
+				err = dao.RemoveTrackingByMessageID(ctx, t.GuildID, t.MessageID)
 				if err != nil {
 					return err
 				}
@@ -561,7 +562,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 	values := utils.Values(notifications)
 	sort.Sort(model.ByPlayerCountNotificationIDs(values))
 
-	err = dao.SetPlayerCountNotificationList(ctx, queries, values)
+	err = dao.SetPlayerCountNotificationList(ctx, values)
 	if err != nil {
 		return err
 	}

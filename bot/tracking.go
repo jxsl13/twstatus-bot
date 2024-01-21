@@ -10,7 +10,6 @@ import (
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
@@ -56,7 +55,7 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 		msgs = append(msgs, msg)
 	}
 
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -68,7 +67,7 @@ func (b *Bot) addTracking(ctx context.Context, data cmdroute.CommandData) (resp 
 	}()
 
 	for idx, msg := range msgs {
-		err = dao.AddTracking(ctx, q, model.Tracking{
+		err = dao.AddTracking(ctx, model.Tracking{
 			MessageTarget: model.MessageTarget{
 				ChannelTarget: model.ChannelTarget{
 					GuildID:   data.Event.GuildID,

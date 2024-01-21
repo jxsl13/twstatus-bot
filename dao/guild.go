@@ -6,11 +6,10 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
-	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
-func ListGuilds(ctx context.Context, q *sqlc.Queries) (guilds model.Guilds, err error) {
-	gs, err := q.ListGuilds(ctx)
+func (dao *DAO) ListGuilds(ctx context.Context) (guilds model.Guilds, err error) {
+	gs, err := dao.q.ListGuilds(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query guilds: %w", err)
 	}
@@ -24,8 +23,8 @@ func ListGuilds(ctx context.Context, q *sqlc.Queries) (guilds model.Guilds, err 
 	return guilds, nil
 }
 
-func AddGuild(ctx context.Context, q *sqlc.Queries, guild model.Guild) (err error) {
-	err = q.AddGuild(ctx, guild.ToSQLC())
+func (dao *DAO) AddGuild(ctx context.Context, guild model.Guild) (err error) {
+	err = dao.q.AddGuild(ctx, guild.ToSQLC())
 	if err != nil {
 		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: guild %d", ErrAlreadyExists, guild.ID)
@@ -35,8 +34,8 @@ func AddGuild(ctx context.Context, q *sqlc.Queries, guild model.Guild) (err erro
 	return nil
 }
 
-func GetGuild(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID) (guild model.Guild, err error) {
-	gs, err := q.GetGuild(ctx, int64(guildID))
+func (dao *DAO) GetGuild(ctx context.Context, guildID discord.GuildID) (guild model.Guild, err error) {
+	gs, err := dao.q.GetGuild(ctx, int64(guildID))
 	if err != nil {
 		return model.Guild{}, fmt.Errorf("failed to query guild: %w", err)
 	}
@@ -50,14 +49,14 @@ func GetGuild(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID) (gu
 	}, nil
 }
 
-func RemoveGuild(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID) (guild model.Guild, err error) {
+func (dao *DAO) RemoveGuild(ctx context.Context, guildID discord.GuildID) (guild model.Guild, err error) {
 
-	guild, err = GetGuild(ctx, q, guildID)
+	guild, err = dao.GetGuild(ctx, guildID)
 	if err != nil {
 		return model.Guild{}, fmt.Errorf("failed to get guild: %w", err)
 	}
 
-	err = q.RemoveGuild(ctx, int64(guildID))
+	err = dao.q.RemoveGuild(ctx, int64(guildID))
 	if err != nil {
 		return model.Guild{}, fmt.Errorf("failed to remove guild: %w", err)
 	}

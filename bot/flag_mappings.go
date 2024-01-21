@@ -8,7 +8,6 @@ import (
 	"github.com/diamondburned/arikawa/v3/api/cmdroute"
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/diamondburned/arikawa/v3/utils/json/option"
-	"github.com/jxsl13/twstatus-bot/dao"
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
@@ -18,16 +17,17 @@ type AddFlagMappingParams struct {
 }
 
 func (b *Bot) listFlagMappings(ctx context.Context, data cmdroute.CommandData) *api.InteractionResponseData {
-	q, closer, err := b.ConnQueries(ctx)
+	dao, closer, err := b.ConnDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
 	defer closer()
 
 	channelID := optionalChannelID(data)
-	mappings, err := dao.ListFlagMappings(ctx,
-		q,
-		data.Event.GuildID, channelID,
+	mappings, err := dao.ListFlagMappings(
+		ctx,
+		data.Event.GuildID,
+		channelID,
 	)
 	if err != nil {
 		return errorResponse(err)
@@ -47,7 +47,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		return errorResponse(err)
 	}
 
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -58,7 +58,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		}
 	}()
 
-	flag, err := dao.GetFlagByAbbr(ctx, q, params.Abbr)
+	flag, err := dao.GetFlagByAbbr(ctx, params.Abbr)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -71,7 +71,7 @@ func (b *Bot) addFlagMapping(ctx context.Context, data cmdroute.CommandData) (re
 		Emoji:     params.Emoji,
 	}
 
-	err = dao.AddFlagMapping(ctx, q, mapping)
+	err = dao.AddFlagMapping(ctx, mapping)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -95,7 +95,7 @@ func (b *Bot) removeFlagMapping(ctx context.Context, data cmdroute.CommandData) 
 		return errorResponse(err)
 	}
 
-	q, closer, err := b.TxQueries(ctx)
+	dao, closer, err := b.TxDAO(ctx)
 	if err != nil {
 		return errorResponse(err)
 	}
@@ -108,7 +108,6 @@ func (b *Bot) removeFlagMapping(ctx context.Context, data cmdroute.CommandData) 
 
 	err = dao.RemoveFlagMapping(
 		ctx,
-		q,
 		data.Event.GuildID,
 		optionalChannelID(data),
 		params.Abbr,

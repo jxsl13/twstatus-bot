@@ -32,15 +32,10 @@ func (b *Bot) logWriter() {
 				logEntry.Message,
 			)
 			log.Println(msg)
-			var embeds discord.MessageFlags = discord.SuppressEmbeds
-			if len(logEntry.Embedding) > 0 {
-				embeds = 0
-			}
-
 			_, err := b.state.SendMessageComplex(b.channelID, api.SendMessageData{
 				Content: msg,
 				Embeds:  logEntry.Embedding,
-				Flags:   embeds,
+				Flags:   discord.SuppressEmbeds,
 			})
 			if err != nil {
 				b.Errorf("failed to send log message: %v", err)

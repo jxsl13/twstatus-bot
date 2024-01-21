@@ -26,7 +26,7 @@ ORDER BY c.guild_id ASC, c.channel_id ASC;
 -- name: DeleteActiveServers :exec
 DELETE FROM active_servers;
 
--- name: InsertActiveServers :exec
+-- name: InsertActiveServers :copyfrom
 INSERT INTO active_servers (
 	timestamp,
 	address,
@@ -79,7 +79,7 @@ ORDER BY
 DELETE FROM active_server_clients;
 
 
--- name: InsertActiveServerClients :exec
+-- name: InsertActiveServerClients :copyfrom
 INSERT INTO active_server_clients (
 	address,
 	name,

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/diamondburned/arikawa/v3/discord"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jxsl13/twstatus-bot/model"
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
@@ -183,7 +182,7 @@ func activeClients(ctx context.Context, q *sqlc.Queries, servers map[model.Messa
 	return servers, nil
 }
 
-func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) error {
+func SetServers(ctx context.Context, q *sqlc.Queries, servers model.ServerList) error {
 	flags, err := q.ListFlags(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list flags: %w", err)
@@ -204,55 +203,23 @@ func SetServers(ctx context.Context, q *sqlc.Queries, servers []model.Server) er
 		return fmt.Errorf("failed to delete active servers: %w", err)
 	}
 
-	for _, server := range servers {
-		err = q.InsertActiveServers(ctx, sqlc.InsertActiveServersParams{
-			Timestamp: pgtype.Timestamptz{
-				Time:  server.Timestamp,
-				Valid: true,
-			},
-			Address:      server.Address,
-			Protocols:    server.ProtocolsJSON(),
-			Name:         server.Name,
-			Gametype:     server.Gametype,
-			Passworded:   server.Passworded,
-			Map:          server.Map,
-			MapSha256sum: server.MapSha256Sum,
-			MapSize:      server.MapSize,
-			Version:      server.Version,
-			MaxClients:   server.MaxClients,
-			MaxPlayers:   server.MaxPlayers,
-			ScoreKind:    server.ScoreKind,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to insert server: %w", err)
-		}
-
-		for _, client := range server.Clients {
-			// skip connecting players
-			if client.IsConnecting() {
-				continue
-			}
-
-			if !knownFlags[client.Country] {
-				// set to known
-				client.Country = -1
-			}
-
-			err = q.InsertActiveServerClients(ctx, sqlc.InsertActiveServerClientsParams{
-				Address:   server.Address,
-				Name:      client.Name,
-				Clan:      client.Clan,
-				CountryID: client.Country,
-				Score:     client.Score,
-				IsPlayer:  client.IsPlayer,
-				Team:      client.Team,
-			})
-
-			if err != nil {
-				return fmt.Errorf("failed to insert client: %w", err)
-			}
-		}
+	ss, cs := servers.ToSQLC(knownFlags)
+	i, err := q.InsertActiveServers(ctx, ss)
+	if err != nil {
+		return fmt.Errorf("failed to insert servers: %w", err)
 	}
+	if i != int64(len(ss)) {
+		return fmt.Errorf("failed to insert all servers: %d/%d", i, len(ss))
+	}
+
+	i, err = q.InsertActiveServerClients(ctx, cs)
+	if err != nil {
+		return fmt.Errorf("failed to insert clients: %w", err)
+	}
+	if i != int64(len(cs)) {
+		return fmt.Errorf("failed to insert all clients: %d/%d", i, len(cs))
+	}
+
 	return nil
 }
 

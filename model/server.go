@@ -9,8 +9,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jxsl13/twstatus-bot/servers"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
+
+type ServerList []Server
+
+func (sl ServerList) ToSQLC(knownFlags map[int16]bool) ([]sqlc.InsertActiveServersParams, []sqlc.InsertActiveServerClientsParams) {
+	servers := make([]sqlc.InsertActiveServersParams, 0, len(sl))
+	clients := make([]sqlc.InsertActiveServerClientsParams, 0, len(sl))
+	for _, server := range sl {
+		s, cs := server.ToSQLC(knownFlags)
+		servers = append(servers, s)
+		clients = append(clients, cs...)
+	}
+
+	return servers, clients
+}
 
 type Server struct {
 	Timestamp    time.Time
@@ -26,7 +42,31 @@ type Server struct {
 	MaxClients   int16
 	MaxPlayers   int16
 	ScoreKind    string
-	Clients      []Client // serialized as json into database
+	Clients      ClientList // serialized as json into database
+}
+
+func (s *Server) ToSQLC(knownFlags map[int16]bool) (sqlc.InsertActiveServersParams, []sqlc.InsertActiveServerClientsParams) {
+	srv := sqlc.InsertActiveServersParams{
+		Timestamp: pgtype.Timestamptz{
+			Time:  s.Timestamp,
+			Valid: true,
+		},
+		Address:      s.Address,
+		Protocols:    s.ProtocolsJSON(),
+		Name:         s.Name,
+		Gametype:     s.Gametype,
+		Passworded:   s.Passworded,
+		Map:          s.Map,
+		MapSha256sum: s.MapSha256Sum,
+		MapSize:      s.MapSize,
+		Version:      s.Version,
+		MaxClients:   s.MaxClients,
+		MaxPlayers:   s.MaxPlayers,
+		ScoreKind:    s.ScoreKind,
+	}
+
+	clients := s.Clients.ToSQLC(srv.Address, knownFlags)
+	return srv, clients
 }
 
 func (s *Server) ProtocolsJSON() []byte {
@@ -38,6 +78,25 @@ func (s *Server) ProtocolsFromJSON(data []byte) error {
 	return json.Unmarshal(data, &s.Protocols)
 }
 
+type ClientList []Client
+
+func (cl ClientList) ToSQLC(address string, knownFlags map[int16]bool) []sqlc.InsertActiveServerClientsParams {
+	result := make([]sqlc.InsertActiveServerClientsParams, 0, len(cl))
+	for _, client := range cl {
+		if client.IsConnecting() {
+			continue
+		}
+
+		if !knownFlags[client.Country] {
+			// unknown flags fall back to default flag
+			client.Country = -1
+		}
+
+		result = append(result, client.ToSQLC(address))
+	}
+	return result
+}
+
 type Client struct {
 	Name     string `json:"name"`
 	Clan     string `json:"clan"`
@@ -47,6 +106,18 @@ type Client struct {
 	Skin     *Skin  `json:"skin,omitempty"`
 	Afk      *bool  `json:"afk,omitempty"`
 	Team     *int16 `json:"team,omitempty"`
+}
+
+func (c *Client) ToSQLC(address string) sqlc.InsertActiveServerClientsParams {
+	return sqlc.InsertActiveServerClientsParams{
+		Address:   address,
+		Name:      c.Name,
+		Clan:      c.Clan,
+		CountryID: c.Country,
+		Score:     c.Score,
+		IsPlayer:  c.IsPlayer,
+		Team:      c.Team,
+	}
 }
 
 func (c *Client) IsPlayerInt64() int64 {

@@ -57,18 +57,6 @@ func (q *Queries) ExistsServer(ctx context.Context, address string) ([]string, e
 	return items, nil
 }
 
-const insertActiveServerClients = `-- name: InsertActiveServerClients :exec
-INSERT INTO active_server_clients (
-	address,
-	name,
-	clan,
-	country_id,
-	score,
-	is_player,
-	team
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-`
-
 type InsertActiveServerClientsParams struct {
 	Address   string `db:"address"`
 	Name      string `db:"name"`
@@ -78,37 +66,6 @@ type InsertActiveServerClientsParams struct {
 	IsPlayer  bool   `db:"is_player"`
 	Team      *int16 `db:"team"`
 }
-
-func (q *Queries) InsertActiveServerClients(ctx context.Context, arg InsertActiveServerClientsParams) error {
-	_, err := q.db.Exec(ctx, insertActiveServerClients,
-		arg.Address,
-		arg.Name,
-		arg.Clan,
-		arg.CountryID,
-		arg.Score,
-		arg.IsPlayer,
-		arg.Team,
-	)
-	return err
-}
-
-const insertActiveServers = `-- name: InsertActiveServers :exec
-INSERT INTO active_servers (
-	timestamp,
-	address,
-	protocols,
-	name,
-	gametype,
-	passworded,
-	map,
-	map_sha256sum,
-	map_size,
-	version,
-	max_clients,
-	max_players,
-	score_kind
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-`
 
 type InsertActiveServersParams struct {
 	Timestamp    pgtype.Timestamptz `db:"timestamp"`
@@ -124,25 +81,6 @@ type InsertActiveServersParams struct {
 	MaxClients   int16              `db:"max_clients"`
 	MaxPlayers   int16              `db:"max_players"`
 	ScoreKind    string             `db:"score_kind"`
-}
-
-func (q *Queries) InsertActiveServers(ctx context.Context, arg InsertActiveServersParams) error {
-	_, err := q.db.Exec(ctx, insertActiveServers,
-		arg.Timestamp,
-		arg.Address,
-		arg.Protocols,
-		arg.Name,
-		arg.Gametype,
-		arg.Passworded,
-		arg.Map,
-		arg.MapSha256sum,
-		arg.MapSize,
-		arg.Version,
-		arg.MaxClients,
-		arg.MaxPlayers,
-		arg.ScoreKind,
-	)
-	return err
 }
 
 const listTrackedServerClients = `-- name: ListTrackedServerClients :many

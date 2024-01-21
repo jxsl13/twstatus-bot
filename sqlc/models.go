@@ -67,6 +67,11 @@ type PlayerCountNotification struct {
 	Threshold int16 `db:"threshold"`
 }
 
+type PlayerCountNotificationMessage struct {
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+}
+
 type PrevActiveServer struct {
 	MessageID    int64              `db:"message_id"`
 	GuildID      int64              `db:"guild_id"`

@@ -8,12 +8,14 @@ sql:
       "queries/flags.sql",
       "queries/guild.sql",
       "queries/player_count_notification.sql",
+      "queries/player_count_notification_messages.sql",
       "queries/prev_active_servers.sql",
       "queries/prev_mentions.sql",
       "queries/tracking.sql"
     ]
     schema: [
       "migrations/001_schema.sql",
+      "migrations/003_schema.sql",
     ]
     gen:
       go:

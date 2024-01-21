@@ -5,11 +5,20 @@ import (
 	"strings"
 
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
 type Guild struct {
 	ID          discord.GuildID
 	Description string
+}
+
+// to sqlc
+func (g *Guild) ToSQLC() sqlc.AddGuildParams {
+	return sqlc.AddGuildParams{
+		GuildID:     int64(g.ID),
+		Description: g.Description,
+	}
 }
 
 func (g *Guild) String() string {

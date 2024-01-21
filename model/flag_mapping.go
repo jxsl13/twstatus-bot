@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
 type FlagMapping struct {
@@ -13,6 +14,15 @@ type FlagMapping struct {
 	FlagID    int16
 	Abbr      string
 	Emoji     string
+}
+
+func (fm *FlagMapping) ToAddSQLC() sqlc.AddFlagMappingParams {
+	return sqlc.AddFlagMappingParams{
+		GuildID:   int64(fm.GuildID),
+		ChannelID: int64(fm.ChannelID),
+		FlagID:    fm.FlagID,
+		Emoji:     fm.Emoji,
+	}
 }
 
 func (f *FlagMapping) String() string {

@@ -1,6 +1,9 @@
 package model
 
-import "github.com/diamondburned/arikawa/v3/discord"
+import (
+	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/jxsl13/twstatus-bot/sqlc"
+)
 
 type MessageUserTarget struct {
 	MessageTarget
@@ -10,6 +13,25 @@ type MessageUserTarget struct {
 type PlayerCountNotification struct {
 	MessageUserTarget
 	Threshold int
+}
+
+func (p *PlayerCountNotification) ToSetSQLC() sqlc.SetPlayerCountNotificationParams {
+	return sqlc.SetPlayerCountNotificationParams{
+		GuildID:   int64(p.GuildID),
+		ChannelID: int64(p.ChannelID),
+		MessageID: int64(p.MessageID),
+		UserID:    int64(p.UserID),
+		Threshold: int16(p.Threshold),
+	}
+}
+
+func (p *PlayerCountNotification) ToRemoveSQLC() sqlc.RemovePlayerCountNotificationParams {
+	return sqlc.RemovePlayerCountNotificationParams{
+		GuildID:   int64(p.GuildID),
+		ChannelID: int64(p.ChannelID),
+		MessageID: int64(p.MessageID),
+		UserID:    int64(p.UserID),
+	}
 }
 
 func (p PlayerCountNotification) Notify(change *ChangedServerStatus) bool {

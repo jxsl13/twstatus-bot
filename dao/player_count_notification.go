@@ -117,7 +117,7 @@ func GetPlayerCountNotification(
 	}, nil
 
 }
-func SetPlayerCountNotifications(ctx context.Context, q *sqlc.Queries, notifications []model.PlayerCountNotification) (err error) {
+func SetPlayerCountNotificationList(ctx context.Context, q *sqlc.Queries, notifications []model.PlayerCountNotification) (err error) {
 
 	for _, n := range notifications {
 		err = q.SetPlayerCountNotification(ctx, sqlc.SetPlayerCountNotificationParams{
@@ -134,13 +134,7 @@ func SetPlayerCountNotifications(ctx context.Context, q *sqlc.Queries, notificat
 }
 
 func SetPlayerCountNotification(ctx context.Context, q *sqlc.Queries, n model.PlayerCountNotification) (err error) {
-	return q.SetPlayerCountNotification(ctx, sqlc.SetPlayerCountNotificationParams{
-		GuildID:   int64(n.GuildID),
-		ChannelID: int64(n.ChannelID),
-		MessageID: int64(n.MessageID),
-		UserID:    int64(n.UserID),
-		Threshold: int16(n.Threshold),
-	})
+	return q.SetPlayerCountNotification(ctx, n.ToSetSQLC())
 
 }
 
@@ -149,13 +143,6 @@ func RemovePlayerCountNotifications(ctx context.Context, q *sqlc.Queries) (err e
 }
 
 func RemovePlayerCountNotification(ctx context.Context, q *sqlc.Queries, n model.PlayerCountNotification) (err error) {
-	return q.RemovePlayerCountNotification(ctx,
-		sqlc.RemovePlayerCountNotificationParams{
-			GuildID:   int64(n.GuildID),
-			ChannelID: int64(n.ChannelID),
-			MessageID: int64(n.MessageID),
-			UserID:    int64(n.UserID),
-			Threshold: int16(n.Threshold),
-		})
+	return q.RemovePlayerCountNotification(ctx, n.ToRemoveSQLC())
 
 }

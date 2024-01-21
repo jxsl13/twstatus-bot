@@ -561,7 +561,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 	values := utils.Values(notifications)
 	sort.Sort(model.ByPlayerCountNotificationIDs(values))
 
-	err = dao.SetPlayerCountNotifications(ctx, queries, values)
+	err = dao.SetPlayerCountNotificationList(ctx, queries, values)
 	if err != nil {
 		return err
 	}

@@ -41,12 +41,7 @@ func ListFlagMappings(
 }
 
 func AddFlagMapping(ctx context.Context, q *sqlc.Queries, mapping model.FlagMapping) (err error) {
-	return q.AddFlagMapping(ctx, sqlc.AddFlagMappingParams{
-		GuildID:   int64(mapping.GuildID),
-		ChannelID: int64(mapping.ChannelID),
-		FlagID:    mapping.FlagID,
-		Emoji:     mapping.Emoji,
-	})
+	return q.AddFlagMapping(ctx, mapping.ToAddSQLC())
 }
 
 func GetFlagMapping(

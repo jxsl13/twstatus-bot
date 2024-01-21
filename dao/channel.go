@@ -50,11 +50,7 @@ func ListChannels(ctx context.Context, q *sqlc.Queries, guildID discord.GuildID)
 }
 
 func AddChannel(ctx context.Context, q *sqlc.Queries, channel model.Channel) (err error) {
-	err = q.AddGuildChannel(ctx, sqlc.AddGuildChannelParams{
-		GuildID:   int64(channel.GuildID),
-		ChannelID: int64(channel.ID),
-		Running:   channel.Running,
-	})
+	err = q.AddGuildChannel(ctx, channel.ToSQLC())
 	if err != nil {
 		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: channel %s", ErrAlreadyExists, channel)

@@ -25,10 +25,7 @@ func ListGuilds(ctx context.Context, q *sqlc.Queries) (guilds model.Guilds, err 
 }
 
 func AddGuild(ctx context.Context, q *sqlc.Queries, guild model.Guild) (err error) {
-	err = q.AddGuild(ctx, sqlc.AddGuildParams{
-		GuildID:     int64(guild.ID),
-		Description: guild.Description,
-	})
+	err = q.AddGuild(ctx, guild.ToSQLC())
 	if err != nil {
 		if IsUniqueConstraintErr(err) {
 			return fmt.Errorf("%w: guild %d", ErrAlreadyExists, guild.ID)

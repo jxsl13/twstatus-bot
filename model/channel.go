@@ -5,12 +5,21 @@ import (
 	"strings"
 
 	"github.com/diamondburned/arikawa/v3/discord"
+	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
 type Channel struct {
 	GuildID discord.GuildID
 	ID      discord.ChannelID
 	Running bool
+}
+
+func (c *Channel) ToSQLC() sqlc.AddGuildChannelParams {
+	return sqlc.AddGuildChannelParams{
+		GuildID:   int64(c.GuildID),
+		ChannelID: int64(c.ID),
+		Running:   c.Running,
+	}
 }
 
 func (c *Channel) RunningInt64() int64 {

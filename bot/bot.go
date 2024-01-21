@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
 	"runtime"
 	"sort"
 	"sync"
@@ -289,7 +288,7 @@ type Bot struct {
 	c               chan model.ChangedServerStatus
 	pollingInterval time.Duration
 	conflictMap     *xsync.MapOf[model.MessageTarget, Backoff]
-	logChan         chan slog.Record
+	logChan         chan LogEntry
 }
 
 // New requires a discord bot token and returns a Bot instance.
@@ -322,7 +321,7 @@ func New(
 		pollingInterval: pollingInterval,
 		guildID:         guildID,
 		channelID:       channelID,
-		logChan:         make(chan slog.Record, 1024),
+		logChan:         make(chan LogEntry, 1024),
 	}
 
 	s.AddIntents(

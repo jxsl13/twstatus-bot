@@ -31,6 +31,24 @@ func Escape(userInput string) string {
 	return markdownReplacer.Replace(userInput)
 }
 
+func CodeHighlight(language string, code string) string {
+	hasLeadingNewline := strings.HasPrefix(code, "\n")
+	hasTrailingNewline := strings.HasSuffix(code, "\n")
+
+	if hasLeadingNewline && hasTrailingNewline {
+		return WrapInMultilineCodeBlock(fmt.Sprintf("%s%s", language, code))
+	} else if hasLeadingNewline {
+		return WrapInMultilineCodeBlock(fmt.Sprintf("%s%s\n", language, code))
+	} else if hasTrailingNewline {
+		return WrapInMultilineCodeBlock(fmt.Sprintf("%s\n%s", language, code))
+	}
+	return WrapInMultilineCodeBlock(fmt.Sprintf("%s\n%s\n", language, code))
+}
+
+func WrapInMultilineCodeBlock(text string) string {
+	return WrapInCustom(text, "```")
+}
+
 // WrapInInlineCodeBlock puts the user input into a inline codeblock that is properly escaped.
 func WrapInInlineCodeBlock(text string) string {
 	return WrapInCustom(text, "`")

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/url"
 	"strings"
 	"time"
@@ -189,10 +190,15 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 }
 
 func ClientFromDTO(client servers.Client) Client {
+	country := int16(-1)
+	if math.MinInt16 <= client.Country && client.Country <= math.MaxInt16 {
+		country = int16(client.Country)
+	}
+
 	return Client{
 		Name:     client.Name,
 		Clan:     client.Clan,
-		Country:  client.Country,
+		Country:  country,
 		Score:    client.Score,
 		IsPlayer: client.IsPlayer,
 		Skin:     SkinFromDTO(client.Skin),

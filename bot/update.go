@@ -24,29 +24,54 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
+	httpGet := time.Since(start)
 
+	start = time.Now()
 	serverList, err := model.NewServersFromDTO(servers)
 	if err != nil {
 		return 0, 0, err
 	}
+	convert := time.Since(start)
 
-	q, closer, err := b.TxQueries(b.ctx)
+	start = time.Now()
+	err = func(srvs []model.Server) error {
+		q, closer, err := b.TxQueries(b.ctx)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = closer(err)
+		}()
+
+		err = dao.SetServers(b.ctx, q, srvs)
+		if err != nil {
+			return err
+		}
+		return nil
+	}(serverList)
 	if err != nil {
 		return 0, 0, err
 	}
-	defer func() {
-		err = closer(err)
-	}()
-
-	err = dao.SetServers(b.ctx, q, serverList)
-	if err != nil {
-		return 0, 0, err
-	}
+	dbSet := time.Since(start)
 
 	src = len(servers)
 	dst = len(serverList)
 
-	log.Printf("updated %d source to %d target servers in %s", src, dst, time.Since(start))
+	dur := httpGet + convert + dbSet
+	log.Printf("updated %d source to %d target servers in %s", src, dst, dur)
+	if dur > b.pollingInterval {
+		b.Warnf(`updating servers took longer than the polling interval (%s > %s)
+http request took   %s
+dto conversion took %s
+db transaction took %s
+`,
+			dur,
+			b.pollingInterval,
+			httpGet,
+			convert,
+			dbSet,
+		)
+	}
 	return src, dst, nil
 }
 
@@ -127,6 +152,7 @@ func (b *Bot) updateDiscordMessage(change model.ChangedServerStatus) (err error)
 		return err
 	}
 
+	b.Warnf("failed to update message %s: %v", target, herr)
 	editingTooFrequently := herr.Status == http.StatusTooManyRequests && herr.Code == 30046
 	if editingTooFrequently {
 		b.conflictMap.Compute(target, func(backoff Backoff, loaded bool) (newValue Backoff, delete bool) {

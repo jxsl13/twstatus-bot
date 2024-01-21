@@ -205,6 +205,8 @@ func (dao *DAO) SetServers(ctx context.Context, servers model.ServerList) error 
 	ss, cs := servers.ToSQLC(knownFlags)
 	i, err := dao.q.InsertActiveServers(ctx, ss)
 	if err != nil {
+		// i is not an index but a size
+		dao.l.DebugAnyf(ss[i], "failed to insert(id=%d)", i)
 		return fmt.Errorf("failed to insert servers: %w", err)
 	}
 	if i != int64(len(ss)) {

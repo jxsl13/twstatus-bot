@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jxsl13/twstatus-bot/logging"
 	"github.com/jxsl13/twstatus-bot/sqlc"
 )
 
@@ -32,4 +33,5 @@ func NewDAO(q *sqlc.Queries) *DAO {
 
 type DAO struct {
 	q *sqlc.Queries
+	l *logging.Logger
 }

@@ -59,7 +59,12 @@ type Guild struct {
 	Description string `db:"description"`
 }
 
-type PlayerCountNotification struct {
+type PlayerCountNotificationMessage struct {
+	ChannelID int64 `db:"channel_id"`
+	MessageID int64 `db:"message_id"`
+}
+
+type PlayerCountNotificationRequest struct {
 	GuildID   int64 `db:"guild_id"`
 	ChannelID int64 `db:"channel_id"`
 	MessageID int64 `db:"message_id"`
@@ -99,13 +104,6 @@ type PrevActiveServerClient struct {
 	Team      *int16 `db:"team"`
 	FlagAbbr  string `db:"flag_abbr"`
 	FlagEmoji string `db:"flag_emoji"`
-}
-
-type PrevMessageMention struct {
-	GuildID   int64 `db:"guild_id"`
-	ChannelID int64 `db:"channel_id"`
-	MessageID int64 `db:"message_id"`
-	UserID    int64 `db:"user_id"`
 }
 
 type Tracking struct {

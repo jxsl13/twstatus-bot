@@ -29,33 +29,6 @@ const (
 	channelOptionName = "channel"
 )
 
-var (
-	reactionPlayerCountNotificationMap = map[discord.APIEmoji]int{
-		discord.NewAPIEmoji(0, "1️⃣"): 1,
-		discord.NewAPIEmoji(0, "2️⃣"): 2,
-		discord.NewAPIEmoji(0, "3️⃣"): 3,
-		discord.NewAPIEmoji(0, "4️⃣"): 4,
-		discord.NewAPIEmoji(0, "5️⃣"): 5,
-		discord.NewAPIEmoji(0, "6️⃣"): 6,
-		discord.NewAPIEmoji(0, "7️⃣"): 7,
-		discord.NewAPIEmoji(0, "8️⃣"): 8,
-		discord.NewAPIEmoji(0, "9️⃣"): 9,
-		discord.NewAPIEmoji(0, "🔟"):   10,
-	}
-	reactionPlayerCountNotificationReverseMap = map[int]discord.APIEmoji{
-		1:  discord.NewAPIEmoji(0, "1️⃣"),
-		2:  discord.NewAPIEmoji(0, "2️⃣"),
-		3:  discord.NewAPIEmoji(0, "3️⃣"),
-		4:  discord.NewAPIEmoji(0, "4️⃣"),
-		5:  discord.NewAPIEmoji(0, "5️⃣"),
-		6:  discord.NewAPIEmoji(0, "6️⃣"),
-		7:  discord.NewAPIEmoji(0, "7️⃣"),
-		8:  discord.NewAPIEmoji(0, "8️⃣"),
-		9:  discord.NewAPIEmoji(0, "9️⃣"),
-		10: discord.NewAPIEmoji(0, "🔟"),
-	}
-)
-
 var ownerCommandList = []api.CreateCommandData{
 	{
 		Name:        "list-guilds",
@@ -287,6 +260,7 @@ type Bot struct {
 	channelID       discord.ChannelID
 	userID          discord.UserID
 	c               chan model.ChangedServerStatus
+	n               chan model.PlayerCountNotificationMessage
 	pollingInterval time.Duration
 	conflictMap     *xsync.MapOf[model.MessageTarget, Backoff]
 	l               *logging.Logger
@@ -318,6 +292,7 @@ func New(
 		superAdmins:     superAdmins,
 		useEmbeds:       !legacyMessageFormat,
 		c:               make(chan model.ChangedServerStatus, 1024),
+		n:               make(chan model.PlayerCountNotificationMessage, 1024),
 		conflictMap:     xsync.NewMapOf[model.MessageTarget, Backoff](),
 		pollingInterval: pollingInterval,
 		guildID:         guildID,
@@ -357,11 +332,19 @@ func New(
 				log.Fatalf("failed to synchronize database with discord state: %v", err)
 			}
 
+			routines := 1
+
 			// start polling
-			go bot.cacheCleanup()
+			go bot.cacheCleanup(routines)
 			go bot.serverUpdater(pollingInterval)
 			for i := 0; i < max(2*runtime.NumCPU(), 5); i++ {
-				go bot.messageUpdater(i + 1)
+				routines++
+				go bot.messageUpdater(routines)
+			}
+
+			for i := 0; i < max(runtime.NumCPU(), 3); i++ {
+				routines++
+				go bot.notificationUpdater(routines)
 			}
 		})
 	})
@@ -452,7 +435,7 @@ func (b *Bot) TxDAO(ctx context.Context) (d *dao.DAO, closer func(error) error, 
 	if err != nil {
 		return nil, nil, err
 	}
-	return dao.NewDAO(sqlc.New(tx)), closer, nil
+	return dao.NewDAO(sqlc.New(tx), b.l), closer, nil
 }
 
 func (b *Bot) ConnDAO(ctx context.Context) (d *dao.DAO, closer func(), err error) {
@@ -460,7 +443,7 @@ func (b *Bot) ConnDAO(ctx context.Context) (d *dao.DAO, closer func(), err error
 	if err != nil {
 		return nil, nil, err
 	}
-	return dao.NewDAO(sqlc.New(c)), f, nil
+	return dao.NewDAO(sqlc.New(c), b.l), f, nil
 }
 
 func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
@@ -469,7 +452,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 		err = closer(err)
 	}()
 
-	err = dao.RemovePlayerCountNotifications(ctx)
+	err = dao.RemovePlayerCountNotificationRequests(ctx)
 	if err != nil {
 		return err
 	}
@@ -479,8 +462,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 		return err
 	}
 
-	//msgs := make([]*discord.Message, 0, len(trackings))
-	notifications := make(map[model.MessageUserTarget]model.PlayerCountNotification)
+	notifications := make(map[model.MessageUserTarget]model.PlayerCountNotificationRequest)
 
 	for _, t := range trackings {
 		log.Printf("fetching message %s for notification tracking", t.MessageTarget)
@@ -500,7 +482,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 		// iterate over all message reactions
 		for _, reaction := range m.Reactions {
 			emoji := reaction.Emoji.APIString()
-			if _, ok := reactionPlayerCountNotificationMap[emoji]; !ok {
+			if _, ok := model.ReactionPlayerCountNotificationMap[emoji]; !ok {
 				// none of the ones that we want to look at
 				continue
 			}
@@ -512,7 +494,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 				}
 				return err
 			}
-			val := reactionPlayerCountNotificationMap[emoji]
+			val := model.ReactionPlayerCountNotificationMap[emoji]
 
 			log.Printf("found %d users for emoji %s of message %s", len(users), emoji, t.MessageTarget)
 			for _, user := range users {
@@ -528,7 +510,7 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 							n.ChannelID,
 							n.MessageID,
 							n.UserID,
-							reactionPlayerCountNotificationReverseMap[n.Threshold],
+							model.ReactionPlayerCountNotificationReverseMap[n.Threshold],
 						)
 						if err != nil {
 							return err
@@ -543,14 +525,14 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 							n.ChannelID,
 							n.MessageID,
 							n.UserID,
-							reactionPlayerCountNotificationReverseMap[val],
+							model.ReactionPlayerCountNotificationReverseMap[val],
 						)
 						if err != nil {
 							return err
 						}
 					}
 				} else {
-					notifications[userTarget] = model.PlayerCountNotification{
+					notifications[userTarget] = model.PlayerCountNotificationRequest{
 						MessageUserTarget: userTarget,
 						Threshold:         val,
 					}
@@ -560,9 +542,9 @@ func (b *Bot) syncDatabaseState(ctx context.Context) (err error) {
 	}
 
 	values := utils.Values(notifications)
-	sort.Sort(model.ByPlayerCountNotificationIDs(values))
+	sort.Sort(model.ByPlayerCountNotificationRequestIDs(values))
 
-	err = dao.SetPlayerCountNotificationList(ctx, values)
+	err = dao.SetPlayerCountNotificationRequestList(ctx, values)
 	if err != nil {
 		return err
 	}

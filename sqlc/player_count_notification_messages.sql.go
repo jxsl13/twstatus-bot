@@ -34,12 +34,13 @@ SELECT
 	COALESCE(pcm.message_id, 0)::bigint AS prev_message_id,
 	pcn.user_id,
 	MAX(COALESCE(np.num_players, 0))::smallint AS num_players
-FROM tracking t
+FROM channels c
+JOIN tracking t ON c.channel_id = t.channel_id
 LEFT JOIN (
 	SELECT ac.address, count(*) AS num_players
 	FROM active_server_clients ac
 	GROUP BY ac.address
-	ORDER BY ac.address
+    ORDER BY ac.address
 ) np ON np.address = t.address
 JOIN player_count_notifications pcn
 ON (
@@ -50,6 +51,7 @@ ON (
 )
 LEFT JOIN player_count_notification_messages pcm
 ON (t.channel_id = pcm.channel_id)
+WHERE c.running = TRUE
 GROUP BY t.guild_id, t.channel_id, pcm.message_id, pcn.user_id, num_players
 ORDER BY t.guild_id, t.channel_id, pcm.message_id, num_players, pcn.user_id
 `

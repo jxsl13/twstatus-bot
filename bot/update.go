@@ -74,19 +74,30 @@ db transaction took %s
 	return src, dst, nil
 }
 
+// returns a list of active changed addresses for notification purposes
 func (b *Bot) changedServers() error {
-	var producer chan<- model.ChangedServerStatus = b.c
+	var updateProducer chan<- model.ChangedServerStatus = b.c
 
-	servers, err := func() (map[model.MessageTarget]model.ChangedServerStatus, error) {
+	servers, notifications, err := func() (map[model.MessageTarget]model.ChangedServerStatus, []model.PlayerCountNotificationMessage, error) {
 		dao, closer, err := b.TxDAO(b.ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		defer func() {
 			err = closer(err)
 		}()
 
-		return dao.ChangedServers(b.ctx)
+		servers, addresses, err := dao.ChangedServers(b.ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		pcnm, err := dao.GetPlayerCountNotificationMessages(b.ctx, addresses)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return servers, pcnm, nil
 	}()
 	if err != nil {
 		return err
@@ -95,12 +106,23 @@ func (b *Bot) changedServers() error {
 	log.Printf("%d server messages require an update", len(servers))
 	for _, server := range servers {
 		select {
-		case producer <- server:
+		case updateProducer <- server:
 			continue
 		case <-b.ctx.Done():
 			return b.ctx.Err()
 		}
 	}
+
+	for _, v := range notifications {
+		select {
+		case b.n <- v:
+			continue
+		case <-b.ctx.Done():
+			return b.ctx.Err()
+		}
+
+	}
+
 	return nil
 }
 

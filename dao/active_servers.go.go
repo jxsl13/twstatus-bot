@@ -6,21 +6,21 @@ import (
 
 	"github.com/diamondburned/arikawa/v3/discord"
 	"github.com/jxsl13/twstatus-bot/model"
+	"github.com/jxsl13/twstatus-bot/utils"
 )
 
-func (dao *DAO) ChangedServers(ctx context.Context) (_ map[model.MessageTarget]model.ChangedServerStatus, err error) {
+func (dao *DAO) ChangedServers(ctx context.Context) (_ map[model.MessageTarget]model.ChangedServerStatus, changedActiveAddresses []string, err error) {
 	previousServers, err := dao.PrevActiveServers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get previous active servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to get previous active servers: %w", err)
 	}
 
 	currentServers, err := dao.ActiveServers(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current active servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to get current active servers: %w", err)
 	}
 
 	changedServers := make(map[model.MessageTarget]model.ChangedServerStatus, 64)
-
 	// removed servers
 	for target := range previousServers {
 		if empty, ok := currentServers[target]; !ok {
@@ -33,6 +33,7 @@ func (dao *DAO) ChangedServers(ctx context.Context) (_ map[model.MessageTarget]m
 		}
 	}
 
+	changedActiveServers := make(map[string]struct{}, 64)
 	// to add
 	added := make(map[model.MessageTarget]model.ServerStatus, 64)
 	for target, server := range currentServers {
@@ -45,6 +46,7 @@ func (dao *DAO) ChangedServers(ctx context.Context) (_ map[model.MessageTarget]m
 					Curr:   server,
 				}
 				added[target] = server
+				changedActiveServers[server.Address] = struct{}{}
 			}
 		} else {
 			// not found in prev -> new server
@@ -63,30 +65,25 @@ func (dao *DAO) ChangedServers(ctx context.Context) (_ map[model.MessageTarget]m
 	}
 	err = dao.removePrevActiveServers(ctx, messageIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to remove previous active servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to remove previous active servers: %w", err)
 	}
 
 	err = dao.removePrevActiveClients(ctx, messageIDs)
 	if err != nil {
-		return nil, fmt.Errorf("failed to remove previous active clients: %w", err)
+		return nil, nil, fmt.Errorf("failed to remove previous active clients: %w", err)
 	}
 
 	err = dao.addPrevActiveServers(ctx, added)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add previous active servers: %w", err)
+		return nil, nil, fmt.Errorf("failed to add previous active servers: %w", err)
 	}
 
 	err = dao.addPrevActiveClients(ctx, added)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add previous active clients: %w", err)
+		return nil, nil, fmt.Errorf("failed to add previous active clients: %w", err)
 	}
 
-	changedServers, err = dao.GetTargetListNotifications(ctx, changedServers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get target list notifications: %w", err)
-	}
-
-	return changedServers, nil
+	return changedServers, utils.SortedMapKeys(changedActiveServers), nil
 }
 
 func (dao *DAO) ActiveServers(ctx context.Context) (servers map[model.MessageTarget]model.ServerStatus, err error) {

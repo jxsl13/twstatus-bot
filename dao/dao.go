@@ -25,9 +25,10 @@ func IsUniqueConstraintErr(err error) bool {
 	return false
 }
 
-func NewDAO(q *sqlc.Queries) *DAO {
+func NewDAO(q *sqlc.Queries, l *logging.Logger) *DAO {
 	return &DAO{
 		q: q,
+		l: l,
 	}
 }
 

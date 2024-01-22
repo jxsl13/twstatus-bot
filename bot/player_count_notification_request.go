@@ -9,8 +9,8 @@ import (
 	"github.com/jxsl13/twstatus-bot/model"
 )
 
-func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEvent) {
-	val, found := reactionPlayerCountNotificationMap[e.Emoji.APIString()]
+func (b *Bot) handleAddPlayerCountNotificationRequest(e *gateway.MessageReactionAddEvent) {
+	val, found := model.ReactionPlayerCountNotificationMap[e.Emoji.APIString()]
 	if !found {
 		return
 	}
@@ -26,7 +26,7 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		},
 	}
 
-	n := model.PlayerCountNotification{
+	n := model.PlayerCountNotificationRequest{
 		MessageUserTarget: userTarget,
 		Threshold:         val,
 	}
@@ -43,11 +43,11 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		}
 	}()
 
-	pcn, err := dao.GetPlayerCountNotification(b.ctx, userTarget)
+	pcn, err := dao.GetPlayerCountNotificationRequest(b.ctx, userTarget)
 	if err != nil {
 		// not found, just insert
 		if errors.Is(err, d.ErrNotFound) {
-			err = dao.SetPlayerCountNotification(b.ctx, n)
+			err = dao.SetPlayerCountNotificationRequest(b.ctx, n)
 			if err != nil {
 				b.l.Errorf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 				return
@@ -65,7 +65,7 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		return
 	}
 
-	prevEmoji, ok := reactionPlayerCountNotificationReverseMap[pcn.Threshold]
+	prevEmoji, ok := model.ReactionPlayerCountNotificationReverseMap[pcn.Threshold]
 	if !ok {
 		panic("failed to get emoji for player count notification: map must contain value to emoji mapping")
 	}
@@ -76,7 +76,7 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 		return
 	}
 
-	err = dao.SetPlayerCountNotification(b.ctx, n)
+	err = dao.SetPlayerCountNotificationRequest(b.ctx, n)
 	if err != nil {
 		b.l.Errorf("failed to set player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return
@@ -85,8 +85,8 @@ func (b *Bot) handleAddPlayerCountNotifications(e *gateway.MessageReactionAddEve
 	log.Printf("added player count notification for user %s and message %s", e.UserID, n.MessageTarget)
 }
 
-func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRemoveEvent) {
-	val, found := reactionPlayerCountNotificationMap[e.Emoji.APIString()]
+func (b *Bot) handleRemovePlayerCountNotificationRequest(e *gateway.MessageReactionRemoveEvent) {
+	val, found := model.ReactionPlayerCountNotificationMap[e.Emoji.APIString()]
 	if !found || b.userID == e.UserID {
 		return
 	}
@@ -102,7 +102,7 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 		},
 	}
 
-	n := model.PlayerCountNotification{
+	n := model.PlayerCountNotificationRequest{
 		MessageUserTarget: userTarget,
 		Threshold:         val,
 	}
@@ -114,7 +114,7 @@ func (b *Bot) handleRemovePlayerCountNotifications(e *gateway.MessageReactionRem
 	}
 	defer closer()
 
-	err = dao.RemovePlayerCountNotification(b.ctx, n)
+	err = dao.RemovePlayerCountNotificationRequest(b.ctx, n)
 	if err != nil {
 		b.l.Errorf("failed to remove player count notification(%s -> %s): %v", n.MessageTarget, n.UserID, err)
 		return

@@ -10,7 +10,7 @@ func (b *Bot) handleAddReactions(e *gateway.MessageReactionAddEvent) {
 	// if so, add the reaction to the message
 	// if not, ignore the reaction
 
-	b.handleAddPlayerCountNotifications(e)
+	b.handleAddPlayerCountNotificationRequest(e)
 }
 
 func (b *Bot) handleRemoveReactions(e *gateway.MessageReactionRemoveEvent) {
@@ -19,5 +19,5 @@ func (b *Bot) handleRemoveReactions(e *gateway.MessageReactionRemoveEvent) {
 	// and if the user that removed the reaction is the bot itself
 	// if so, remove the reaction from the message
 	// if not, ignore the reaction
-	b.handleRemovePlayerCountNotifications(e)
+	b.handleRemovePlayerCountNotificationRequest(e)
 }

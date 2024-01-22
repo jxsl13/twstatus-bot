@@ -37,7 +37,7 @@ func (b *Bot) logWriter() {
 				Flags:   discord.SuppressEmbeds,
 			})
 			if err != nil {
-				b.l.Errorf("failed to send log message: %v", err)
+				b.l.Errorf("failed to send log message to %s: %v", b.channelID, err)
 				continue
 			}
 		case <-b.ctx.Done():

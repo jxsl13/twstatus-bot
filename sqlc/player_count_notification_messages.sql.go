@@ -28,44 +28,57 @@ func (q *Queries) AddPlayerCountNotificationMessage(ctx context.Context, arg Add
 }
 
 const getPlayerCountNotificationMessages = `-- name: GetPlayerCountNotificationMessages :many
+
+
 SELECT
 	t.guild_id,
 	t.channel_id,
+	pcr.message_id AS req_message_id,
 	COALESCE(pcm.message_id, 0)::bigint AS prev_message_id,
-	pcn.user_id,
+	pcr.user_id,
+	MIN(pcr.threshold)::smallint AS threshold,
 	MAX(COALESCE(np.num_players, 0))::smallint AS num_players
 FROM channels c
 JOIN tracking t ON c.channel_id = t.channel_id
 LEFT JOIN (
 	SELECT ac.address, count(*) AS num_players
 	FROM active_server_clients ac
+	WHERE ac.address = ANY($1::TEXT[])
 	GROUP BY ac.address
     ORDER BY ac.address
 ) np ON np.address = t.address
-JOIN player_count_notifications pcn
+JOIN player_count_notification_requests pcr
 ON (
-	t.guild_id = pcn.guild_id AND
-	t.channel_id = pcn.channel_id AND
-	t.message_id = pcn.message_id AND
-	num_players >= pcn.threshold
+	t.guild_id = pcr.guild_id AND
+	t.channel_id = pcr.channel_id AND
+	t.message_id = pcr.message_id AND
+	num_players >= pcr.threshold
 )
 LEFT JOIN player_count_notification_messages pcm
 ON (t.channel_id = pcm.channel_id)
 WHERE c.running = TRUE
-GROUP BY t.guild_id, t.channel_id, pcm.message_id, pcn.user_id, num_players
-ORDER BY t.guild_id, t.channel_id, pcm.message_id, num_players, pcn.user_id
+GROUP BY
+	t.guild_id,
+	t.channel_id,
+	pcm.message_id,
+	pcr.message_id,
+	pcr.user_id,
+	num_players
+ORDER BY t.guild_id, t.channel_id, pcm.message_id, num_players, pcr.user_id
 `
 
 type GetPlayerCountNotificationMessagesRow struct {
 	GuildID       int64 `db:"guild_id"`
 	ChannelID     int64 `db:"channel_id"`
+	ReqMessageID  int64 `db:"req_message_id"`
 	PrevMessageID int64 `db:"prev_message_id"`
 	UserID        int64 `db:"user_id"`
+	Threshold     int16 `db:"threshold"`
 	NumPlayers    int16 `db:"num_players"`
 }
 
-func (q *Queries) GetPlayerCountNotificationMessages(ctx context.Context) ([]GetPlayerCountNotificationMessagesRow, error) {
-	rows, err := q.db.Query(ctx, getPlayerCountNotificationMessages)
+func (q *Queries) GetPlayerCountNotificationMessages(ctx context.Context, dollar_1 []string) ([]GetPlayerCountNotificationMessagesRow, error) {
+	rows, err := q.db.Query(ctx, getPlayerCountNotificationMessages, dollar_1)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +89,10 @@ func (q *Queries) GetPlayerCountNotificationMessages(ctx context.Context) ([]Get
 		if err := rows.Scan(
 			&i.GuildID,
 			&i.ChannelID,
+			&i.ReqMessageID,
 			&i.PrevMessageID,
 			&i.UserID,
+			&i.Threshold,
 			&i.NumPlayers,
 		); err != nil {
 			return nil, err

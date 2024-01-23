@@ -91,7 +91,7 @@ SELECT
 	tsc.name,
 	tsc.clan,
 	tsc.country_id,
-	(CASE WHEN tsc.score = -9999 THEN 9223372036854775807 ELSE tsc.score END)::INTEGER as score,
+	(CASE WHEN tsc.score = -9999 THEN 2147483647 ELSE tsc.score END)::INTEGER as score,
 	tsc.is_player,
 	tsc.team,
 	f.abbr,

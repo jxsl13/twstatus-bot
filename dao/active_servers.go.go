@@ -203,7 +203,7 @@ func (dao *DAO) SetServers(ctx context.Context, servers model.ServerList) error 
 	i, err := dao.q.InsertActiveServers(ctx, ss)
 	if err != nil {
 		// i is not an index but a size
-		dao.l.DebugAnyf(ss[i], "failed to insert(id=%d)", i)
+		dao.l.DebugAnyf(ss, "failed to insert servers(inserted=%d)", i)
 		return fmt.Errorf("failed to insert servers: %w", err)
 	}
 	if i != int64(len(ss)) {
@@ -212,6 +212,7 @@ func (dao *DAO) SetServers(ctx context.Context, servers model.ServerList) error 
 
 	i, err = dao.q.InsertActiveServerClients(ctx, cs)
 	if err != nil {
+		dao.l.DebugAnyf(cs, "failed to insert clients(inserted=%d)", i)
 		return fmt.Errorf("failed to insert clients: %w", err)
 	}
 	if i != int64(len(cs)) {

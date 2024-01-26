@@ -1,13 +1,15 @@
 package logging
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/diamondburned/arikawa/v3/discord"
-	"github.com/jxsl13/twstatus-bot/markdown"
+	"github.com/diamondburned/arikawa/v3/utils/sendpart"
 )
 
 type Logger struct {
@@ -25,13 +27,14 @@ func NewLogger(ctx context.Context) *Logger {
 type LogEntry struct {
 	slog.Record
 	Embedding []discord.Embed
+	Files     []sendpart.File
 }
 
 func (b *Logger) Consume() <-chan LogEntry {
 	return b.logChan
 }
 
-func (b *Logger) Logf(level slog.Level, embed []discord.Embed, format string, args ...any) {
+func (b *Logger) Logf(level slog.Level, format string, args ...any) {
 	select {
 	case b.logChan <- LogEntry{
 		Record: slog.Record{
@@ -39,7 +42,6 @@ func (b *Logger) Logf(level slog.Level, embed []discord.Embed, format string, ar
 			Level:   level,
 			Message: fmt.Sprintf(format, args...),
 		},
-		Embedding: embed,
 	}:
 	case <-b.ctx.Done():
 		return
@@ -47,31 +49,40 @@ func (b *Logger) Logf(level slog.Level, embed []discord.Embed, format string, ar
 }
 
 func (b *Logger) Errorf(format string, args ...any) {
-	b.Logf(slog.LevelError, nil, format, args...)
+	b.Logf(slog.LevelError, format, args...)
 }
 
 func (b *Logger) Warnf(format string, args ...any) {
-	b.Logf(slog.LevelWarn, nil, format, args...)
+	b.Logf(slog.LevelWarn, format, args...)
 }
 
 func (b *Logger) Infof(format string, args ...any) {
-	b.Logf(slog.LevelInfo, nil, format, args...)
+	b.Logf(slog.LevelInfo, format, args...)
 }
 
 func (b *Logger) Debugf(format string, args ...any) {
-	b.Logf(slog.LevelDebug, nil, format, args...)
+	b.Logf(slog.LevelDebug, format, args...)
 }
 
 func (b *Logger) DebugAnyf(obj any, format string, args ...any) {
-	b.Logf(slog.LevelDebug, []discord.Embed{
-		{
-			Title: "Debug",
-			Type:  discord.NormalEmbed,
-			Fields: []discord.EmbedField{
-				{
-					Value: markdown.CodeHighlight("go", fmt.Sprintf("%#v", obj)),
-				},
-			},
+	buf := bytes.NewBuffer(nil)
+	enc := json.NewEncoder(buf)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(obj)
+	select {
+	case b.logChan <- LogEntry{
+		Record: slog.Record{
+			Time:    time.Now(),
+			Level:   slog.LevelDebug,
+			Message: fmt.Sprintf(format, args...),
 		},
-	}, format, args...)
+		Files: []sendpart.File{
+			{
+				Name:   "debug.json",
+				Reader: buf,
+			},
+		}}:
+	case <-b.ctx.Done():
+		return
+	}
 }

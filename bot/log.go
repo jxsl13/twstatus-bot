@@ -35,6 +35,7 @@ func (b *Bot) logWriter() {
 				Content: msg,
 				Embeds:  logEntry.Embedding,
 				Flags:   discord.SuppressEmbeds,
+				Files:   logEntry.Files,
 			})
 			if err != nil {
 				b.l.Errorf("failed to send log message to %s: %v", b.channelID, err)

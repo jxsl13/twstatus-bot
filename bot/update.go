@@ -44,6 +44,7 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 
 		err = dao.SetServers(b.ctx, srvs)
 		if err != nil {
+			b.l.DebugAnyf(servers, "failed to set servers (dto server list attached): %v", err)
 			return err
 		}
 		return nil

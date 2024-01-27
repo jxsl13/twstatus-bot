@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -70,7 +71,7 @@ type InsertActiveServerClientsParams struct {
 type InsertActiveServersParams struct {
 	Timestamp    pgtype.Timestamptz `db:"timestamp"`
 	Address      string             `db:"address"`
-	Protocols    []byte             `db:"protocols"`
+	Protocols    json.RawMessage    `db:"protocols"`
 	Name         string             `db:"name"`
 	Gametype     string             `db:"gametype"`
 	Passworded   bool               `db:"passworded"`
@@ -191,7 +192,7 @@ type ListTrackedServersRow struct {
 	MessageID    int64              `db:"message_id"`
 	Timestamp    pgtype.Timestamptz `db:"timestamp"`
 	Address      string             `db:"address"`
-	Protocols    []byte             `db:"protocols"`
+	Protocols    json.RawMessage    `db:"protocols"`
 	Name         string             `db:"name"`
 	Gametype     string             `db:"gametype"`
 	Passworded   bool               `db:"passworded"`

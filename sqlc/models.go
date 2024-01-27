@@ -5,13 +5,15 @@
 package sqlc
 
 import (
+	"encoding/json"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type ActiveServer struct {
 	Timestamp    pgtype.Timestamptz `db:"timestamp"`
 	Address      string             `db:"address"`
-	Protocols    []byte             `db:"protocols"`
+	Protocols    json.RawMessage    `db:"protocols"`
 	Name         string             `db:"name"`
 	Gametype     string             `db:"gametype"`
 	Passworded   bool               `db:"passworded"`
@@ -78,7 +80,7 @@ type PrevActiveServer struct {
 	ChannelID    int64              `db:"channel_id"`
 	Timestamp    pgtype.Timestamptz `db:"timestamp"`
 	Address      string             `db:"address"`
-	Protocols    []byte             `db:"protocols"`
+	Protocols    json.RawMessage    `db:"protocols"`
 	Name         string             `db:"name"`
 	Gametype     string             `db:"gametype"`
 	Passworded   bool               `db:"passworded"`

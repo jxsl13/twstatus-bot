@@ -51,5 +51,4 @@ func TestGetAllServerMods(t *testing.T) {
 	fmt.Println(strings.Join(utils.SortedMapKeys(timeM), "\n"))
 	fmt.Println("All gametypes with unknown:")
 	fmt.Println(strings.Join(utils.SortedMapKeys(unknownM), "\n"))
-
 }

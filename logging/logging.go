@@ -65,10 +65,19 @@ func (b *Logger) Debugf(format string, args ...any) {
 }
 
 func (b *Logger) DebugAnyf(obj any, format string, args ...any) {
-	buf := bytes.NewBuffer(nil)
-	enc := json.NewEncoder(buf)
-	enc.SetIndent("", "  ")
-	_ = enc.Encode(obj)
+	buf := bytes.NewBuffer(make([]byte, 1024*1024))
+
+	switch o := obj.(type) {
+	case []byte:
+		_, _ = buf.Write(o)
+	case json.RawMessage:
+		_, _ = buf.Write(o)
+	default:
+		enc := json.NewEncoder(buf)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(obj)
+	}
+
 	select {
 	case b.logChan <- LogEntry{
 		Record: slog.Record{

@@ -11,15 +11,16 @@ import (
 )
 
 func TestGetAllServers(t *testing.T) {
-	servers, err := servers.GetAllServers()
+	data, servers, err := servers.GetAllServers()
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 	assert.GreaterOrEqual(t, len(servers), 1)
+	assert.GreaterOrEqual(t, len(data), 1)
 }
 
 func TestGetAllServerMods(t *testing.T) {
-	servers, err := servers.GetAllServers()
+	_, servers, err := servers.GetAllServers()
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}

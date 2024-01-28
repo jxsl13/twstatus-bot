@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -533,6 +534,11 @@ func (cs *ClientStatus) FormatScore(scoreKind string) string {
 
 	if cs.IsSpectator() {
 		return spec
+	}
+
+	// 2147483647
+	if cs.Score == math.MaxInt32 {
+		return ""
 	}
 
 	return strconv.FormatInt(int64(cs.Score), 10)

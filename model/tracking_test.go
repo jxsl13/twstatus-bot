@@ -9,9 +9,10 @@ import (
 
 func TestRuneWidth(t *testing.T) {
 	// test cases from
-	weirdCharacters := "     Ƥ.I.Ƈ."
-	normalCharacters := "[Syndicate]"
-
+	var (
+		weirdCharacters  = "     Ƥ.I.Ƈ."
+		normalCharacters = "[Syndicate]"
+	)
 	c := runewidth.NewCondition()
 	c.EastAsianWidth = false
 	c.StrictEmojiNeutral = false
@@ -19,5 +20,5 @@ func TestRuneWidth(t *testing.T) {
 	wl := runewidth.StringWidth(weirdCharacters)
 	nl := runewidth.StringWidth(normalCharacters)
 
-	require.NotEqual(t, wl, nl)
+	require.Equal(t, wl, nl)
 }

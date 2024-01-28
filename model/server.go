@@ -6,12 +6,14 @@ import (
 	"log"
 	"math"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jxsl13/twstatus-bot/servers"
 	"github.com/jxsl13/twstatus-bot/sqlc"
+	"github.com/jxsl13/twstatus-bot/utils"
 )
 
 type ServerList []Server
@@ -43,6 +45,53 @@ type Server struct {
 	MaxPlayers   int16
 	ScoreKind    string
 	Clients      ClientList // serialized as json into database
+}
+
+func (s *Server) Merge(s2 Server) {
+	if s.Timestamp.IsZero() {
+		*s = s2
+		return
+	} else if s2.Timestamp.IsZero() {
+		return
+	} else if s.Timestamp.Before(s2.Timestamp) {
+		*s = s2
+		return
+	} else if s.Timestamp.After(s2.Timestamp) {
+		return
+	}
+	// both time stamps are equal
+
+	s.Address = utils.MergeValue(s.Address, s2.Address)
+	s.Protocols = utils.MergeSliceUnique(s.Protocols, s2.Protocols)
+	if len(s.Protocols) > 1 {
+		sort.Strings(s.Protocols)
+	}
+
+	s.Name = utils.MergeValue(s.Name, s2.Name)
+	s.Gametype = utils.MergeValue(s.Gametype, s2.Gametype)
+	s.Passworded = s.Passworded || s2.Passworded
+	s.Map = utils.MergeValue(s.Map, s2.Map)
+	s.MapSha256Sum = utils.MergePointer(s.MapSha256Sum, s2.MapSha256Sum)
+	s.MapSize = utils.MergePointer(s.MapSize, s2.MapSize)
+	s.Version = utils.MergeValue(s.Version, s2.Version)
+	s.MaxClients = utils.MergeValue(s.MaxClients, s2.MaxClients)
+	s.MaxPlayers = utils.MergeValue(s.MaxPlayers, s2.MaxPlayers)
+	s.ScoreKind = utils.MergeValue(s.ScoreKind, s2.ScoreKind)
+
+	if len(s.Clients) < len(s2.Clients) {
+		// merging is only necessary when a player connects to the server
+		// which means that we have an additional player on one of the multiple protocols
+		s.Clients = s.Clients[:0]
+		s.Clients = append(s.Clients, s2.Clients...)
+	} else if len(s.Clients) == len(s2.Clients) {
+		// both servers have the same amount of clients
+		// so we need to merge the clients
+		for i := range s.Clients {
+			s.Clients[i].Merge(s2.Clients[i])
+		}
+	}
+	// s.Clients > s2.Clients
+	// no merging necessary
 }
 
 func (s *Server) ToSQLC(knownFlags map[int16]bool) (sqlc.InsertActiveServersParams, []sqlc.InsertActiveServerClientsParams) {
@@ -108,6 +157,17 @@ type Client struct {
 	Team     *int16 `json:"team,omitempty"`
 }
 
+func (c *Client) Merge(c2 Client) {
+	c.Name = utils.MergeValue(c.Name, c2.Name)
+	c.Clan = utils.MergeValue(c.Clan, c2.Clan)
+	c.Country = utils.MergeValue(c.Country, c2.Country)
+	c.Score = utils.MergeValue(c.Score, c2.Score)
+	c.IsPlayer = c.IsPlayer || c2.IsPlayer
+	c.Skin.Merge(c2.Skin)
+	c.Afk = utils.MergePointer(c.Afk, c2.Afk)
+	c.Team = utils.MergePointer(c.Team, c2.Team)
+}
+
 func (c *Client) ToSQLC(address string) sqlc.InsertActiveServerClientsParams {
 	return sqlc.InsertActiveServerClientsParams{
 		Address:   address,
@@ -146,9 +206,26 @@ type Skin struct {
 	Eyes       *Part   `json:"eyes,omitempty"`
 }
 
+func (s *Skin) Merge(s2 *Skin) {
+	s.Name = utils.MergePointer(s.Name, s2.Name)
+	s.ColorBody = utils.MergePointer(s.ColorBody, s2.ColorBody)
+	s.ColorFeet = utils.MergePointer(s.ColorFeet, s2.ColorFeet)
+	s.Body.Merge(s2.Body)
+	s.Marking.Merge(s2.Marking)
+	s.Decoration.Merge(s2.Decoration)
+	s.Hands.Merge(s2.Hands)
+	s.Feet.Merge(s2.Feet)
+	s.Eyes.Merge(s2.Eyes)
+}
+
 type Part struct {
 	Name  string `json:"name"`
 	Color *int32 `json:"color,omitempty"`
+}
+
+func (p *Part) Merge(p2 *Part) {
+	p.Name = utils.MergeValue(p.Name, p2.Name)
+	p.Color = utils.MergePointer(p.Color, p2.Color)
 }
 
 var pointGametypes = []string{
@@ -212,6 +289,8 @@ func ScoreKindFromDTO(clientScoreKind *string, gameType string) string {
 // expands the servers.Server DTO into a slice of Server models
 func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 	timestamp := time.Now()
+
+	duplicates := make(map[string][]Server, len(servers))
 	result := make([]Server, 0, len(servers))
 
 	for _, server := range servers {
@@ -223,6 +302,8 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 			clients = append(clients, ClientFromDTO(client))
 		}
 
+		// split server that has multiple addresses and show it as individual server
+		// one ipv4 addr, one ipv6 addr
 		m := make(map[string][]string, len(server.Addresses))
 		for _, addr := range server.Addresses {
 			u, err := url.ParseRequestURI(addr)
@@ -233,10 +314,12 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 
 			if u.Scheme != "" {
 				host := u.Host
-				m[host] = append(m[host], u.Scheme)
+				scheme := u.Scheme
+				m[host] = append(m[host], scheme)
 			}
 		}
 
+		// same server, different addresses and potentially protocols
 		for addr, protocols := range m {
 			server := Server{
 				Timestamp:    timestamp,
@@ -254,9 +337,32 @@ func NewServersFromDTO(servers []servers.Server) ([]Server, error) {
 				ScoreKind:    scoreKind,
 				Clients:      clients,
 			}
+			duplicates[addr] = append(duplicates[addr], server)
 			result = append(result, server)
 		}
 	}
+
+	if len(duplicates) == len(result) {
+		return result, nil
+	}
+
+	// deduplicate
+	result = result[:0]
+
+	for _, ss := range duplicates {
+		if len(ss) == 1 {
+			result = append(result, ss[0])
+			continue
+		}
+
+		// merge duplicates
+		var merged Server
+		for s := range ss {
+			merged.Merge(ss[s])
+		}
+		result = append(result, merged)
+	}
+
 	return result, nil
 }
 

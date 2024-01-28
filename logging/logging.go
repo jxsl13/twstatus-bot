@@ -65,7 +65,8 @@ func (b *Logger) Debugf(format string, args ...any) {
 }
 
 func (b *Logger) DebugAnyf(obj any, format string, args ...any) {
-	buf := bytes.NewBuffer(make([]byte, 1024*1024))
+	buf := &bytes.Buffer{}
+	buf.Grow(1014 * 1024)
 
 	switch o := obj.(type) {
 	case []byte:

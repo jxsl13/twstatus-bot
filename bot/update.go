@@ -21,6 +21,9 @@ func (b *Bot) updateServers() (src, dst int, err error) {
 	start := time.Now()
 	data, servers, err := servers.GetAllServers()
 	if err != nil {
+		if len(data) > 0 {
+			b.l.DebugAnyf(data, "failed to get servers (raw data attached): %v", err)
+		}
 		return 0, 0, err
 	}
 	httpGet := time.Since(start)

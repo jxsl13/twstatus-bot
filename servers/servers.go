@@ -31,12 +31,12 @@ func GetServers(url string) ([]byte, []Server, error) {
 
 	data, err := io.ReadAll(resp.RawBody())
 	if err != nil {
-		return nil, nil, err
+		return data, nil, err
 	}
 
 	err = json.Unmarshal(data, &result)
 	if err != nil {
-		return nil, nil, err
+		return data, nil, err
 	}
 
 	if resp.IsError() {
